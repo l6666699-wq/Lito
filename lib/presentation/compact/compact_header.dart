@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -5,7 +7,7 @@ import '../../app/app_constants.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
 import '../../application/window_controller.dart';
-import '../../icons/local_project_icon.dart';
+import '../../icons/app_icons.dart';
 
 class CompactHeader extends StatelessWidget {
   const CompactHeader({super.key, required this.windowController});
@@ -34,18 +36,25 @@ class CompactHeader extends StatelessWidget {
                   color: colors.focusSoft,
                   borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
                 ),
-                child: LocalProjectIcon(
-                  iconKey: 'check_correct',
-                  color: colors.focus,
-                  size: 15,
-                ),
+                child: Icon(AppIcons.check, color: colors.focus, size: 15),
               ),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  AppConstants.appName,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w600),
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onPanStart: (_) {
+                    if (!windowController.isLocked) {
+                      unawaited(windowController.startDragging());
+                    }
+                  },
+                  child: const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      AppConstants.appName,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ),
               ),
               _HeaderButton(
@@ -73,7 +82,7 @@ class CompactHeader extends StatelessWidget {
                 onPressed: () => windowController.switchMode(WindowMode.full),
               ),
               _HeaderButton(
-                label: '×',
+                icon: AppIcons.windowClose,
                 active: false,
                 tooltip: '隐藏到托盘',
                 onPressed: windowController.hideToTray,
@@ -96,13 +105,15 @@ class CompactHeader extends StatelessWidget {
 
 class _HeaderButton extends StatelessWidget {
   const _HeaderButton({
-    required this.label,
+    this.label,
+    this.icon,
     required this.active,
     required this.tooltip,
     required this.onPressed,
   });
 
-  final String label;
+  final String? label;
+  final IconData? icon;
   final bool active;
   final String tooltip;
   final VoidCallback onPressed;
@@ -120,7 +131,9 @@ class _HeaderButton extends StatelessWidget {
         foregroundColor: active ? colors.focus : colors.textMuted,
         backgroundColor: active ? colors.focusSoft : null,
         hoverBackgroundColor: colors.focusSoft,
-        child: Text(label, style: const TextStyle(fontSize: 11)),
+        child: icon == null
+            ? Text(label!, style: const TextStyle(fontSize: 11))
+            : Icon(icon, size: 14),
       ),
     );
   }

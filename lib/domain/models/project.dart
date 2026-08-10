@@ -12,6 +12,7 @@ class Project {
     required this.archived,
     required this.createdAt,
     required this.updatedAt,
+    this.groupId,
   });
 
   final String id;
@@ -23,6 +24,10 @@ class Project {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Optional group membership.  A null value keeps v1 projects in the
+  /// ungrouped section while allowing the sidebar to introduce groups.
+  final String? groupId;
+
   Project copyWith({
     String? id,
     String? name,
@@ -32,6 +37,7 @@ class Project {
     bool? archived,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Object? groupId = _copyWithSentinel,
   }) {
     return Project(
       id: id ?? this.id,
@@ -42,6 +48,9 @@ class Project {
       archived: archived ?? this.archived,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      groupId: identical(groupId, _copyWithSentinel)
+          ? this.groupId
+          : groupId as String?,
     );
   }
 
@@ -55,6 +64,7 @@ class Project {
       archived: _readBool(json['archived']),
       createdAt: _readDate(json['createdAt']),
       updatedAt: _readDate(json['updatedAt']),
+      groupId: json['groupId'] as String?,
     );
   }
 
@@ -68,6 +78,7 @@ class Project {
       'archived': archived,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'groupId': groupId,
     };
   }
 
@@ -81,7 +92,8 @@ class Project {
         other.sortOrder == sortOrder &&
         other.archived == archived &&
         other.createdAt == createdAt &&
-        other.updatedAt == updatedAt;
+        other.updatedAt == updatedAt &&
+        other.groupId == groupId;
   }
 
   @override
@@ -94,8 +106,11 @@ class Project {
     archived,
     createdAt,
     updatedAt,
+    groupId,
   );
 }
+
+const Object _copyWithSentinel = Object();
 
 int _readInt(Object? value) {
   if (value is int) return value;

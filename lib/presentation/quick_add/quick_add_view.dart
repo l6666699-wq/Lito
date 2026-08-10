@@ -6,8 +6,10 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../app/theme/project_palette.dart';
 import '../../application/quick_add_controller.dart';
-import '../../icons/local_project_icon.dart';
+import '../../icons/app_icons.dart';
+import '../../icons/project_icon.dart';
 
 class _QuickAddCancelIntent extends Intent {
   const _QuickAddCancelIntent();
@@ -92,93 +94,234 @@ class _QuickAddViewState extends State<QuickAddView> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: ListenableBuilder(
                 listenable: widget.controller,
-                builder: (context, child) => Row(
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: colors.focusSoft,
-                        borderRadius: BorderRadius.circular(
-                          AppMetrics.smallRadius,
+                builder: (context, child) => LayoutBuilder(
+                  builder: (context, constraints) {
+                    final narrow = constraints.maxWidth < 360;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _TargetSelector(controller: widget.controller),
+                        const SizedBox(height: 6),
+                        _QuickAddEditor(
+                          controller: widget.controller,
+                          textController: _textController,
+                          focusNode: _focusNode,
+                          colors: colors,
+                          narrow: narrow,
+                          onSubmit: _submit,
+                          onCancel: widget.controller.cancel,
+                          onCancelFromKeyboard: _cancelFromKeyboard,
                         ),
-                      ),
-                      child: LocalProjectIcon(
-                        iconKey: 'add',
-                        color: colors.focus,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Shortcuts(
-                        shortcuts: const <ShortcutActivator, Intent>{
-                          SingleActivator(LogicalKeyboardKey.escape):
-                              _QuickAddCancelIntent(),
-                        },
-                        child: Actions(
-                          actions: <Type, Action<Intent>>{
-                            _QuickAddCancelIntent:
-                                CallbackAction<_QuickAddCancelIntent>(
-                                  onInvoke: (_) {
-                                    _cancelFromKeyboard();
-                                    return null;
-                                  },
-                                ),
-                          },
-                          child: EditableText(
-                            controller: _textController,
-                            focusNode: _focusNode,
-                            autofocus: true,
-                            maxLines: 1,
-                            textInputAction: TextInputAction.done,
-                            onChanged: widget.controller.setDraft,
-                            onSubmitted: (_) => _submit(),
-                            cursorColor: colors.focus,
-                            backgroundCursorColor: colors.textFaint,
-                            style: TextStyle(color: colors.text, fontSize: 14),
-                            selectionColor: colors.focusSoft,
-                            strutStyle: const StrutStyle(fontSize: 14),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ShadButton.ghost(
-                      onPressed: widget.controller.isSubmitting
-                          ? null
-                          : _submit,
-                      height: 30,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      foregroundColor: colors.focus,
-                      child: const Text('添加', style: TextStyle(fontSize: 12)),
-                    ),
-                    ShadButton.ghost(
-                      onPressed: widget.controller.cancel,
-                      height: 30,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      foregroundColor: colors.textMuted,
-                      child: const Text('Esc', style: TextStyle(fontSize: 11)),
-                    ),
-                    if (widget.controller.error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(
-                          widget.controller.error!,
-                          style: TextStyle(
-                            color: colors.textMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TargetSelector extends StatelessWidget {
+  const _TargetSelector({required this.controller});
+
+  final QuickAddController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = controller.selectedTarget;
+    final targets = controller.availableTargets;
+    return SizedBox(
+      height: 28,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final target in targets)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _TargetChip(
+                  target: target,
+                  selected: target == selected,
+                  onPressed: () => controller.setTarget(target.projectId),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TargetChip extends StatelessWidget {
+  const _TargetChip({
+    required this.target,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final QuickAddTarget target;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final targetColor = ProjectPalette.resolve(target.colorKey).accent;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Quick Add 目标：${target.name}',
+      child: ShadButton.ghost(
+        key: ValueKey<String>(
+          'quick-add-target-${target.projectId ?? 'inbox'}',
+        ),
+        onPressed: onPressed,
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        foregroundColor: selected ? colors.focus : colors.textMuted,
+        backgroundColor: selected ? colors.focusSoft : null,
+        hoverBackgroundColor: colors.focusSoft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (target.isInbox)
+              Icon(AppIcons.inbox, size: 13, color: targetColor)
+            else
+              ProjectIcon(
+                iconKey: target.iconKey,
+                color: targetColor,
+                size: 13,
+              ),
+            const SizedBox(width: 4),
+            Text(target.name, style: const TextStyle(fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickAddEditor extends StatelessWidget {
+  const _QuickAddEditor({
+    required this.controller,
+    required this.textController,
+    required this.focusNode,
+    required this.colors,
+    required this.narrow,
+    required this.onSubmit,
+    required this.onCancel,
+    required this.onCancelFromKeyboard,
+  });
+
+  final QuickAddController controller;
+  final TextEditingController textController;
+  final FocusNode focusNode;
+  final AppColorScheme colors;
+  final bool narrow;
+  final Future<void> Function() onSubmit;
+  final Future<void> Function() onCancel;
+  final VoidCallback onCancelFromKeyboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final input = Expanded(
+      child: Shortcuts(
+        shortcuts: const <ShortcutActivator, Intent>{
+          SingleActivator(LogicalKeyboardKey.escape): _QuickAddCancelIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _QuickAddCancelIntent: CallbackAction<_QuickAddCancelIntent>(
+              onInvoke: (_) {
+                onCancelFromKeyboard();
+                return null;
+              },
+            ),
+          },
+          child: EditableText(
+            controller: textController,
+            focusNode: focusNode,
+            autofocus: true,
+            maxLines: 1,
+            textInputAction: TextInputAction.done,
+            onChanged: controller.setDraft,
+            onSubmitted: (_) => onSubmit(),
+            cursorColor: colors.focus,
+            backgroundCursorColor: colors.textFaint,
+            style: TextStyle(color: colors.text, fontSize: 14),
+            selectionColor: colors.focusSoft,
+            strutStyle: const StrutStyle(fontSize: 14),
+          ),
+        ),
+      ),
+    );
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ShadButton.ghost(
+          onPressed: controller.isSubmitting ? null : onSubmit,
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          foregroundColor: colors.focus,
+          child: const Text('添加', style: TextStyle(fontSize: 12)),
+        ),
+        ShadButton.ghost(
+          onPressed: onCancel,
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          foregroundColor: colors.textMuted,
+          child: const Text('Esc', style: TextStyle(fontSize: 11)),
+        ),
+      ],
+    );
+    final error = controller.error == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Text(
+              controller.error!,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colors.textMuted, fontSize: 11),
+            ),
+          );
+
+    final editorRow = Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: colors.focusSoft,
+            borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+          ),
+          child: Icon(AppIcons.add, color: colors.focus, size: 16),
+        ),
+        const SizedBox(width: 10),
+        input,
+        const SizedBox(width: 8),
+        if (!narrow) controls,
+        if (!narrow && controller.error != null) Flexible(child: error),
+      ],
+    );
+    if (!narrow) return editorRow;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        editorRow,
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            controls,
+            if (controller.error != null) Flexible(child: error),
+          ],
+        ),
+      ],
     );
   }
 }

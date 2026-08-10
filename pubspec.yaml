@@ -37,6 +37,15 @@ dependencies:
   hotkey_manager: ^0.2.3
   path_provider: ^2.1.6
   flutter_svg: ^2.3.0
+  # Direct declaration for Display.visiblePosition/visibleSize; window_manager
+  # already brings this stable plugin transitively with no new runtime payload.
+  screen_retriever: ^0.2.2
+  # Official native open/save dialogs for local data transfer; see
+  # THIRD_PARTY_NOTICES.md for the dependency and Windows impact review.
+  file_selector: ^1.1.0
+  # Centralizes UI/system/action glyphs; IconPark SVGs remain project-only.
+  # The package is a small MIT-licensed icon font and avoids a second icon set.
+  lucide_icons_flutter: ^3.1.15
   # 1.2.0 requires win32 >=6, which conflicts with launch_at_startup's
   # win32_registry ^2.0.0 (win32 ^5.8.0); 1.1.0 is the nearest compatible stable release.
   windows_single_instance: ^1.1.0

@@ -10,7 +10,8 @@ import '../../app/theme/app_metrics.dart';
 import '../../app/theme/project_palette.dart';
 import '../../domain/models/project.dart';
 import '../../domain/models/visible_todo_row.dart';
-import '../../icons/local_project_icon.dart';
+import '../../icons/app_icons.dart';
+import '../../icons/project_icon.dart';
 import '../todo/todo_list.dart';
 
 class FullWorkspace extends StatelessWidget {
@@ -188,7 +189,7 @@ class _WindowControls extends StatelessWidget {
           colors: colors,
         ),
         _WindowButton(
-          label: '×',
+          icon: AppIcons.windowClose,
           active: false,
           onPressed: controller.hideToTray,
           colors: colors,
@@ -200,13 +201,15 @@ class _WindowControls extends StatelessWidget {
 
 class _WindowButton extends StatelessWidget {
   const _WindowButton({
-    required this.label,
+    this.label,
+    this.icon,
     required this.active,
     required this.onPressed,
     required this.colors,
   });
 
-  final String label;
+  final String? label;
+  final IconData? icon;
   final bool active;
   final VoidCallback onPressed;
   final AppColorScheme colors;
@@ -220,7 +223,9 @@ class _WindowButton extends StatelessWidget {
       foregroundColor: active ? colors.focus : colors.textMuted,
       backgroundColor: active ? colors.focusSoft : null,
       hoverBackgroundColor: colors.focusSoft,
-      child: Text(label, style: const TextStyle(fontSize: 11)),
+      child: icon == null
+          ? Text(label!, style: const TextStyle(fontSize: 11))
+          : Icon(icon, size: 14),
     );
   }
 }
@@ -240,11 +245,7 @@ class _BrandMark extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
         border: Border.all(color: colors.focus.withValues(alpha: .22)),
       ),
-      child: LocalProjectIcon(
-        iconKey: 'check_correct',
-        color: colors.focus,
-        size: 15,
-      ),
+      child: Icon(AppIcons.check, color: colors.focus, size: 15),
     );
   }
 }
@@ -300,19 +301,15 @@ class _ProjectSidebar extends StatelessWidget {
               const SizedBox(height: 7),
               _SidebarItem(
                 label: AppText.allTodos,
-                icon: LocalProjectIcon(
-                  iconKey: 'list_view',
-                  color: colors.textMuted,
-                  size: 16,
-                ),
+                icon: Icon(AppIcons.layers, color: colors.textMuted, size: 16),
                 active: allActive,
                 accent: colors.focus,
                 onPressed: controller.selectAll,
               ),
               _SidebarItem(
                 label: AppText.inbox,
-                icon: LocalProjectIcon(
-                  iconKey: 'inbox',
+                icon: Icon(
+                  AppIcons.inbox,
                   color: ProjectPalette.resolve('gray').accent,
                   size: 16,
                 ),
@@ -332,11 +329,7 @@ class _ProjectSidebar extends StatelessWidget {
               const Spacer(),
               _SidebarItem(
                 label: AppText.addProject,
-                icon: LocalProjectIcon(
-                  iconKey: 'add',
-                  color: colors.textMuted,
-                  size: 16,
-                ),
+                icon: Icon(AppIcons.add, color: colors.textMuted, size: 16),
                 active: false,
                 accent: colors.textMuted,
                 onPressed: () {},
@@ -453,7 +446,7 @@ class _ProjectSidebarItem extends StatelessWidget {
     final palette = ProjectPalette.resolve(project.colorKey);
     return _SidebarItem(
       label: project.name,
-      icon: LocalProjectIcon(
+      icon: ProjectIcon(
         iconKey: project.iconKey,
         color: active ? palette.accent : colors.textMuted,
         size: 16,

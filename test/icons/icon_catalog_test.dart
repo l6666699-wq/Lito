@@ -1,18 +1,17 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:litetodo/icons/icon_catalog.dart';
+import 'package:litetodo/icons/project_icons.dart';
 
 void main() {
-  test(
-    'IconPark catalog has 48-64 local SVG entries and a stable fallback',
-    () {
-      expect(IconCatalog.entries.length, inInclusiveRange(48, 64));
-      expect(IconCatalog.resolve('home').assetPath, endsWith('/home.svg'));
-      expect(IconCatalog.resolve('unknown-key').key, IconCatalog.fallbackKey);
-      for (final entry in IconCatalog.entries) {
-        expect(File(entry.assetPath).existsSync(), isTrue, reason: entry.key);
-      }
-    },
-  );
+  test('IconPark catalog has 57 local SVG entries and a stable fallback', () {
+    expect(ProjectIcons.entries, hasLength(57));
+    expect(ProjectIcons.resolve('home').assetPath, endsWith('/home.svg'));
+    expect(ProjectIcons.resolve('unknown-key').key, ProjectIcons.fallbackKey);
+    expect(ProjectIcons.contains('folder'), isTrue);
+    expect(ProjectIcons.keys, hasLength(57));
+    for (final entry in ProjectIcons.entries) {
+      expect(File(entry.assetPath).existsSync(), isTrue, reason: entry.key);
+    }
+  });
 }

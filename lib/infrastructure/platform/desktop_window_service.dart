@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/services.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// The three desktop presentations all use this one native Flutter window.
@@ -100,8 +102,14 @@ abstract interface class DesktopWindowService {
   Future<void> show({bool focus = true});
   Future<void> hide();
   Future<void> focus();
+  Future<void> startDragging();
+  Future<void> minimize();
+  Future<bool> isMaximized();
+  Future<void> maximize();
+  Future<void> restore();
   Future<void> destroy();
   Future<WindowGeometry?> readGeometry();
+  Future<Rect?> readVisibleBounds() async => null;
   Future<void> writeGeometry(WindowGeometry geometry);
   Future<void> setResizable(bool value);
   Future<void> setMovable(bool value);
@@ -110,6 +118,9 @@ abstract interface class DesktopWindowService {
   Future<void> setTitle(String title);
   void setCloseRequestHandler(WindowEventHandler? handler);
   void setWindowMovedHandler(WindowEventHandler? handler);
+
+  /// Optional for older test doubles and non-resizable platforms.
+  void setWindowResizedHandler(WindowEventHandler? handler) {}
 }
 
 /// Real Windows implementation.  It is only constructed by bootstrap on
@@ -121,6 +132,7 @@ class WindowsDesktopWindowService
 
   WindowEventHandler? _closeHandler;
   WindowEventHandler? _movedHandler;
+  WindowEventHandler? _resizedHandler;
   String? _capabilityWarning;
   bool _initialized = false;
 
@@ -136,6 +148,13 @@ class WindowsDesktopWindowService
     // bounds/style calls (otherwise window_manager can dereference a null
     // HWND on Windows).
     await windowManager.waitUntilReadyToShow();
+    // The Flutter topbar is the only titlebar rendered by the application.
+    // Keep native caption buttons hidden while retaining the native resize and
+    // maximize behavior exposed by window_manager.
+    await windowManager.setTitleBarStyle(
+      TitleBarStyle.hidden,
+      windowButtonVisibility: false,
+    );
     await windowManager.setTitle('LiteTodo');
     windowManager.addListener(this);
     _initialized = true;
@@ -176,6 +195,36 @@ class WindowsDesktopWindowService
   }
 
   @override
+  Future<void> startDragging() async {
+    if (!Platform.isWindows) return;
+    await windowManager.startDragging();
+  }
+
+  @override
+  Future<void> minimize() async {
+    if (!Platform.isWindows) return;
+    await windowManager.minimize();
+  }
+
+  @override
+  Future<bool> isMaximized() async {
+    if (!Platform.isWindows) return false;
+    return windowManager.isMaximized();
+  }
+
+  @override
+  Future<void> maximize() async {
+    if (!Platform.isWindows) return;
+    await windowManager.maximize();
+  }
+
+  @override
+  Future<void> restore() async {
+    if (!Platform.isWindows) return;
+    await windowManager.restore();
+  }
+
+  @override
   Future<void> destroy() async {
     if (!Platform.isWindows) return;
     windowManager.removeListener(this);
@@ -187,6 +236,20 @@ class WindowsDesktopWindowService
     if (!Platform.isWindows) return null;
     final bounds = await windowManager.getBounds();
     return WindowGeometry(position: bounds.topLeft, size: bounds.size);
+  }
+
+  @override
+  Future<Rect?> readVisibleBounds() async {
+    if (!Platform.isWindows) return null;
+    try {
+      final display = await screenRetriever.getPrimaryDisplay();
+      final position = display.visiblePosition ?? Offset.zero;
+      final size = display.visibleSize ?? display.size;
+      if (size.width <= 0 || size.height <= 0) return null;
+      return Rect.fromLTWH(position.dx, position.dy, size.width, size.height);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -251,6 +314,11 @@ class WindowsDesktopWindowService
   }
 
   @override
+  void setWindowResizedHandler(WindowEventHandler? handler) {
+    _resizedHandler = handler;
+  }
+
+  @override
   void onWindowClose() {
     final handler = _closeHandler;
     if (handler != null) _runHandler(handler);
@@ -259,6 +327,12 @@ class WindowsDesktopWindowService
   @override
   void onWindowMoved() {
     final handler = _movedHandler;
+    if (handler != null) _runHandler(handler);
+  }
+
+  @override
+  void onWindowResized() {
+    final handler = _resizedHandler;
     if (handler != null) _runHandler(handler);
   }
 
@@ -279,8 +353,10 @@ class FakeDesktopWindowService implements DesktopWindowService {
     position: Offset(80, 80),
     size: Size(860, 620),
   );
+  Rect? visibleBounds;
   WindowEventHandler? _closeHandler;
   WindowEventHandler? _movedHandler;
+  WindowEventHandler? _resizedHandler;
   String? _capabilityWarning;
   bool visible = true;
   bool initialized = false;
@@ -288,6 +364,7 @@ class FakeDesktopWindowService implements DesktopWindowService {
   bool movable = true;
   bool alwaysOnTop = false;
   bool skipTaskbar = false;
+  bool maximized = false;
 
   @override
   String? get capabilityWarning => _capabilityWarning;
@@ -323,6 +400,32 @@ class FakeDesktopWindowService implements DesktopWindowService {
   Future<void> focus() async => calls.add('focus');
 
   @override
+  Future<void> startDragging() async => calls.add('startDragging');
+
+  Future<void> drag() => startDragging();
+
+  @override
+  Future<void> minimize() async => calls.add('minimize');
+
+  @override
+  Future<bool> isMaximized() async {
+    calls.add('isMaximized');
+    return maximized;
+  }
+
+  @override
+  Future<void> maximize() async {
+    maximized = true;
+    calls.add('maximize');
+  }
+
+  @override
+  Future<void> restore() async {
+    maximized = false;
+    calls.add('restore');
+  }
+
+  @override
   Future<void> destroy() async {
     visible = false;
     calls.add('destroy');
@@ -333,6 +436,9 @@ class FakeDesktopWindowService implements DesktopWindowService {
     calls.add('readGeometry');
     return geometry;
   }
+
+  @override
+  Future<Rect?> readVisibleBounds() async => visibleBounds;
 
   @override
   Future<void> writeGeometry(WindowGeometry value) async {
@@ -383,6 +489,11 @@ class FakeDesktopWindowService implements DesktopWindowService {
     _movedHandler = handler;
   }
 
+  @override
+  void setWindowResizedHandler(WindowEventHandler? handler) {
+    _resizedHandler = handler;
+  }
+
   Future<void> emitCloseRequest() async {
     final result = _closeHandler?.call();
     if (result is Future<void>) await result;
@@ -390,6 +501,11 @@ class FakeDesktopWindowService implements DesktopWindowService {
 
   Future<void> emitWindowMoved() async {
     final result = _movedHandler?.call();
+    if (result is Future<void>) await result;
+  }
+
+  Future<void> emitWindowResized() async {
+    final result = _resizedHandler?.call();
     if (result is Future<void>) await result;
   }
 }

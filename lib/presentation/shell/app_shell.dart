@@ -3,10 +3,11 @@ import 'package:flutter/widgets.dart';
 import '../../app/app_constants.dart';
 import '../../app/theme/app_colors.dart';
 import '../../application/quick_add_controller.dart';
+import '../../application/app_navigation_controller.dart';
 import '../../application/window_controller.dart';
 import '../../application/workspace_controller.dart';
 import '../compact/compact_workspace.dart';
-import '../full/full_workspace.dart';
+import 'full_app_shell.dart';
 import '../quick_add/quick_add_view.dart';
 
 class AppShell extends StatelessWidget {
@@ -15,11 +16,19 @@ class AppShell extends StatelessWidget {
     required this.controller,
     required this.windowController,
     required this.quickAddController,
+    required this.navigationController,
+    this.onToggleTheme,
+    this.fontFamily = AppConstants.systemFontFamily,
+    this.fontFamilyFallback = const <String>[AppConstants.fallbackFontFamily],
   });
 
   final WorkspaceController controller;
   final WindowController windowController;
   final QuickAddController quickAddController;
+  final AppNavigationController navigationController;
+  final VoidCallback? onToggleTheme;
+  final String fontFamily;
+  final List<String> fontFamilyFallback;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +38,8 @@ class AppShell extends StatelessWidget {
       color: colors.canvas,
       child: DefaultTextStyle(
         style: TextStyle(
-          fontFamily: AppConstants.systemFontFamily,
+          fontFamily: fontFamily,
+          fontFamilyFallback: fontFamilyFallback,
           fontSize: 13,
           color: colors.text,
         ),
@@ -38,9 +48,11 @@ class AppShell extends StatelessWidget {
           builder: (context, child) {
             final content = switch (windowController.state) {
               WindowLifecycleState.fullVisible ||
-              WindowLifecycleState.hiddenToTray => FullWorkspace(
+              WindowLifecycleState.hiddenToTray => FullAppShell(
                 controller: controller,
                 windowController: windowController,
+                navigationController: navigationController,
+                onToggleTheme: onToggleTheme,
               ),
               WindowLifecycleState.compactVisible => CompactWorkspace(
                 controller: controller,

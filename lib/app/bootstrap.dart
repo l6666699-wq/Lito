@@ -1,14 +1,25 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
+import '../application/data_transfer_controller.dart';
+import '../application/settings_controller.dart';
 import '../application/window_controller.dart';
 import '../application/workspace_controller.dart';
+import '../domain/models/app_settings.dart';
+import '../infrastructure/logging/app_log_service.dart';
 import '../infrastructure/platform/desktop_window_service.dart';
+import '../infrastructure/platform/data_directory_service.dart';
+import '../infrastructure/platform/file_selector_picker.dart';
 import '../infrastructure/platform/global_hotkey_service.dart';
 import '../infrastructure/platform/single_instance_service.dart';
 import '../infrastructure/platform/system_tray_service.dart';
+import '../infrastructure/platform/startup_service.dart';
 import '../infrastructure/persistence/json_app_data_repository.dart';
+import '../infrastructure/persistence/backup_service.dart';
+import '../infrastructure/persistence/data_transfer_service.dart';
+import '../infrastructure/persistence/json_settings_repository.dart';
 import 'litetodo_app.dart';
 
 /// Windows-only startup boundary. A second process forwards its arguments
@@ -26,11 +37,61 @@ Future<void> bootstrap(List<String> arguments) async {
   final hotkey = WindowsGlobalHotkeyService();
   final repository = await createDefaultAppDataRepository();
   final workspace = WorkspaceController(repository: repository);
-  final windowController = WindowController(
+  final settingsRepository = await createDefaultSettingsRepository();
+  final settingsDirectory = await settingsRepository.dataDirectory;
+  final appLog = AppLogService(dataDirectory: settingsDirectory);
+  await appLog.initialize();
+  appLog.installGlobalErrorHandlers();
+  unawaited(
+    appLog.logEvent(
+      'app.bootstrap',
+      metadata: const <String, Object?>{
+        'phase': 'startup',
+        'platform': 'windows',
+      },
+    ),
+  );
+  final backupService = BackupService(directory: settingsDirectory);
+  final dataTransferController = DataTransferController(
+    workspace: workspace,
+    service: DataTransferService(backupService: backupService),
+    filePicker: const FileSelectorPicker(),
+  );
+  final startup = WindowsStartupService();
+  late final WindowController windowController;
+  final settingsController = SettingsController(
+    repository: settingsRepository,
+    startupService: startup,
+    globalHotkeyService: hotkey,
+    onGlobalHotkeyPressed: () => windowController.openQuickAdd(),
+  );
+  windowController = WindowController(
     desktopWindowService: desktop,
     systemTrayService: tray,
     globalHotkeyService: hotkey,
-    flushHook: workspace.flushNow,
+    registerHotkeyOnInitialize: false,
+    onLaunchAtStartupChanged: (value) =>
+        settingsController.setLaunchAtStartup(value),
+    visibleBoundsProvider: desktop.readVisibleBounds,
+    onGeometryChanged: (mode, geometry) async {
+      if (!settingsController.isInitialized) return;
+      final settingsMode = mode == WindowMode.compact
+          ? AppWindowMode.compact
+          : AppWindowMode.full;
+      await settingsController.setWindowGeometry(
+        settingsMode,
+        _toAppWindowGeometry(geometry),
+      );
+    },
+    flushHook: () => flushLiteTodoOnExit(
+      workspace: workspace,
+      settings: settingsController,
+      backupService: backupService,
+      appLog: appLog,
+    ),
+  );
+  final dataDirectoryService = WindowsDataDirectoryService(
+    directory: settingsDirectory,
   );
   final singleInstance = WindowsSingleInstanceService();
 
@@ -44,11 +105,202 @@ Future<void> bootstrap(List<String> arguments) async {
       }
     },
   );
-  if (!isPrimary) return;
+  if (!isPrimary) {
+    await appLog.close();
+    return;
+  }
 
   await workspace.initialize();
-  await windowController.initialize();
-  runApp(
-    LiteTodoApp(controller: workspace, windowController: windowController),
+  if (workspace.recoveryWarning != null) {
+    unawaited(
+      appLog.logEvent(
+        'workspace.recovery',
+        metadata: const <String, Object?>{
+          'source': 'workspace',
+          'reason': 'recovery',
+        },
+      ),
+    );
+  }
+  // Initialize the native window hidden before registering the global hotkey.
+  // A hotkey or second-instance request can then safely queue against a ready
+  // window_manager handle without flashing the default Full layout.
+  await windowController.initialize(showWindow: false);
+  try {
+    await settingsController.initialize();
+  } catch (error, stackTrace) {
+    await appLog.logError(
+      code: 'settings.initialize_failed',
+      error: error,
+      stackTrace: stackTrace,
+      metadata: const <String, Object?>{
+        'source': 'settings',
+        'action': 'initialize',
+      },
+    );
+    // Keep the shell available so the settings page can surface a localized
+    // platform error instead of failing the whole process during startup.
+  }
+  final settings = settingsController.settings;
+  await windowController.applyPreferences(
+    startHidden: settings.startHidden,
+    compactAlwaysOnTop: settings.compactAlwaysOnTop,
+    compactSkipTaskbar: settings.compactSkipTaskbar,
+    lockCompactPosition: settings.lockCompactPosition,
+    rememberWindowPosition: settings.rememberWindowPosition,
+    launchAtStartup: settings.launchAtStartup,
+    fullGeometry: _toDesktopWindowGeometry(settings.fullGeometry),
+    compactGeometry: _toDesktopWindowGeometry(settings.compactGeometry),
   );
+  // SettingsController remains the single authority for persisted values;
+  // this listener only projects its startup flag onto the tray checkmark.
+  settingsController.addListener(() {
+    unawaited(
+      _syncTrayStartupPreference(
+        windowController,
+        settingsController.launchAtStartup,
+      ),
+    );
+  });
+  await windowController.setCloseToTray(settings.closeToTray);
+  final explicitActivation = windowController.hasExplicitActivation;
+  final explicitQuickAdd =
+      windowController.explicitActivationMode == WindowMode.quickAdd;
+  if (!explicitQuickAdd && settings.defaultWindowMode != AppWindowMode.full) {
+    await windowController.switchMode(
+      settings.defaultWindowMode == AppWindowMode.compact
+          ? WindowMode.compact
+          : WindowMode.quickAdd,
+    );
+  }
+  if (explicitQuickAdd && windowController.mode != WindowMode.quickAdd) {
+    await windowController.openQuickAdd();
+  }
+  if (explicitActivation) {
+    await windowController.showFromTray();
+  } else if (settings.startHidden) {
+    await windowController.hideToTray();
+  } else {
+    await windowController.showFromTray();
+  }
+  windowController.consumeExplicitActivation();
+  runApp(
+    LiteTodoApp(
+      controller: workspace,
+      windowController: windowController,
+      settingsController: settingsController,
+      backupService: backupService,
+      dataTransferController: dataTransferController,
+      dataDirectoryService: dataDirectoryService,
+    ),
+  );
+}
+
+Future<void> _syncTrayStartupPreference(
+  WindowController windowController,
+  bool launchAtStartup,
+) async {
+  try {
+    await windowController.setLaunchAtStartupPreference(launchAtStartup);
+  } catch (_) {
+    // A tray refresh is best-effort; the settings snapshot and its stable
+    // persistence error remain authoritative when the native menu is busy.
+  }
+}
+
+WindowGeometry? _toDesktopWindowGeometry(AppWindowGeometry? geometry) {
+  if (geometry == null || !geometry.isValid) return null;
+  return WindowGeometry(
+    position: Offset(geometry.x, geometry.y),
+    size: Size(geometry.width, geometry.height),
+  );
+}
+
+AppWindowGeometry? _toAppWindowGeometry(WindowGeometry? geometry) {
+  if (geometry == null) return null;
+  return AppWindowGeometry(
+    x: geometry.position.dx,
+    y: geometry.position.dy,
+    width: geometry.size.width,
+    height: geometry.size.height,
+  );
+}
+
+/// Flushes the local snapshot and settings during native shutdown.  Daily
+/// backup is best-effort: a corrupt or locked backup target is logged, but it
+/// cannot prevent the settings flush or normal window destruction.
+Future<void> flushLiteTodoOnExit({
+  required WorkspaceController workspace,
+  required SettingsController settings,
+  required BackupService backupService,
+  AppLogService? appLog,
+}) async {
+  Object? firstError;
+  StackTrace? firstStack;
+  try {
+    await workspace.flushNow();
+  } catch (error, stackTrace) {
+    firstError = error;
+    firstStack = stackTrace;
+    if (appLog != null) {
+      await appLog.logError(
+        code: 'workspace.flush_failed',
+        error: error,
+        stackTrace: stackTrace,
+        metadata: const <String, Object?>{
+          'source': 'workspace',
+          'action': 'flush',
+        },
+      );
+    }
+  }
+
+  if (firstError == null && settings.autoBackup) {
+    try {
+      await backupService.createDailyBackup();
+    } catch (error, stackTrace) {
+      if (appLog != null) {
+        await appLog.logError(
+          code: 'backup.auto_failed',
+          error: error,
+          stackTrace: stackTrace,
+          metadata: const <String, Object?>{
+            'source': 'repository',
+            'action': 'backup',
+          },
+        );
+      } else {
+        stderr.writeln('LiteTodo automatic backup failed.');
+      }
+    }
+  }
+
+  try {
+    await settings.flushNow();
+  } catch (error, stackTrace) {
+    firstError ??= error;
+    firstStack ??= stackTrace;
+    if (appLog != null) {
+      await appLog.logError(
+        code: 'settings.flush_failed',
+        error: error,
+        stackTrace: stackTrace,
+        metadata: const <String, Object?>{
+          'source': 'settings',
+          'action': 'flush',
+        },
+      );
+    }
+  }
+  if (appLog != null) {
+    await appLog.logEvent(
+      'app.shutdown',
+      metadata: const <String, Object?>{'phase': 'shutdown'},
+    );
+    await appLog.close();
+  }
+  final error = firstError;
+  if (error != null) {
+    Error.throwWithStackTrace(error, firstStack!);
+  }
 }

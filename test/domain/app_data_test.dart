@@ -63,7 +63,7 @@ void main() {
       updatedAt: now,
     );
     final source = AppData(
-      schemaVersion: 1,
+      schemaVersion: AppData.currentSchemaVersion,
       revision: 7,
       projects: <Project>[project],
       todos: <TodoItem>[todo],
@@ -72,13 +72,16 @@ void main() {
 
     final decoded = AppData.fromJson(source.toJson());
     expect(decoded, source);
-    expect(decoded.toJson(), containsPair('schemaVersion', 1));
+    expect(
+      decoded.toJson(),
+      containsPair('schemaVersion', AppData.currentSchemaVersion),
+    );
     expect(decoded.toJson(), containsPair('revision', 7));
     expect(decoded.toJson(), containsPair('trash', isEmpty));
     expect(() => AppData.fromJson(<String, dynamic>{}), throwsFormatException);
     expect(
       () => AppData.fromJson(<String, dynamic>{
-        'schemaVersion': 2,
+        'schemaVersion': 3,
         'revision': 0,
         'projects': <dynamic>[],
         'todos': <dynamic>[],
@@ -86,5 +89,23 @@ void main() {
       }),
       throwsFormatException,
     );
+  });
+
+  test('TrashItem deep equality survives nested JSON round trip', () {
+    final item = TrashItem(
+      id: 'nested',
+      kind: 'todo_subtree',
+      payload: <String, dynamic>{
+        'todos': <dynamic>[
+          <String, dynamic>{
+            'id': 't1',
+            'meta': <String, dynamic>{'done': false},
+          },
+        ],
+      },
+    );
+    final decoded = TrashItem.fromJson(item.toJson());
+    expect(decoded, item);
+    expect(decoded.hashCode, item.hashCode);
   });
 }

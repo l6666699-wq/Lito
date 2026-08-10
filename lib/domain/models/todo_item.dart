@@ -11,6 +11,8 @@ class TodoItem {
     required this.collapsed,
     required this.createdAt,
     required this.updatedAt,
+    this.dueAt,
+    this.archivedAt,
   });
 
   final String id;
@@ -19,10 +21,21 @@ class TodoItem {
   final String title;
   final bool completed;
   final DateTime? completedAt;
+
+  /// Stored as UTC; callers may construct with a local value, but persistence
+  /// always serializes the instant in UTC.
+  final DateTime? dueAt;
+
+  /// A non-null value archives the Todo without removing it from the flat
+  /// list.  This keeps archive/unarchive reversible and migration friendly.
+  final DateTime? archivedAt;
   final int sortOrder;
   final bool collapsed;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  bool get archived => archivedAt != null;
+  bool get isArchived => archived;
 
   TodoItem copyWith({
     String? id,
@@ -31,6 +44,8 @@ class TodoItem {
     String? title,
     bool? completed,
     Object? completedAt = _copyWithSentinel,
+    Object? dueAt = _copyWithSentinel,
+    Object? archivedAt = _copyWithSentinel,
     int? sortOrder,
     bool? collapsed,
     DateTime? createdAt,
@@ -49,6 +64,12 @@ class TodoItem {
       completedAt: identical(completedAt, _copyWithSentinel)
           ? this.completedAt
           : completedAt as DateTime?,
+      dueAt: identical(dueAt, _copyWithSentinel)
+          ? this.dueAt
+          : dueAt as DateTime?,
+      archivedAt: identical(archivedAt, _copyWithSentinel)
+          ? this.archivedAt
+          : archivedAt as DateTime?,
       sortOrder: sortOrder ?? this.sortOrder,
       collapsed: collapsed ?? this.collapsed,
       createdAt: createdAt ?? this.createdAt,
@@ -64,6 +85,8 @@ class TodoItem {
       title: json['title'] as String? ?? '',
       completed: _readBool(json['completed']),
       completedAt: _readNullableDate(json['completedAt']),
+      dueAt: _readNullableDate(json['dueAt']),
+      archivedAt: _readNullableDate(json['archivedAt']),
       sortOrder: _readInt(json['sortOrder']),
       collapsed: _readBool(json['collapsed']),
       createdAt: _readDate(json['createdAt']),
@@ -78,11 +101,13 @@ class TodoItem {
       'parentId': parentId,
       'title': title,
       'completed': completed,
-      'completedAt': completedAt?.toIso8601String(),
+      'completedAt': completedAt?.toUtc().toIso8601String(),
+      'dueAt': dueAt?.toUtc().toIso8601String(),
+      'archivedAt': archivedAt?.toUtc().toIso8601String(),
       'sortOrder': sortOrder,
       'collapsed': collapsed,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
   }
 
@@ -95,6 +120,8 @@ class TodoItem {
         other.title == title &&
         other.completed == completed &&
         other.completedAt == completedAt &&
+        other.dueAt == dueAt &&
+        other.archivedAt == archivedAt &&
         other.sortOrder == sortOrder &&
         other.collapsed == collapsed &&
         other.createdAt == createdAt &&
@@ -109,6 +136,8 @@ class TodoItem {
     title,
     completed,
     completedAt,
+    dueAt,
+    archivedAt,
     sortOrder,
     collapsed,
     createdAt,

@@ -16,7 +16,7 @@ Future<Directory> _temporaryDirectory() =>
 
 AppData _snapshot(int revision, {String title = 'saved'}) {
   return AppData(
-    schemaVersion: 1,
+    schemaVersion: AppData.currentSchemaVersion,
     revision: revision,
     projects: const [],
     todos: const [],
@@ -161,7 +161,7 @@ void main() {
     'QuickAdd failed save rolls back so the same draft retry adds once',
     () async {
       final seed = AppData(
-        schemaVersion: 1,
+        schemaVersion: AppData.currentSchemaVersion,
         revision: 12,
         projects: const [],
         todos: const [],
@@ -219,13 +219,18 @@ void main() {
       final workspace = WorkspaceController(repository: repository);
       await workspace.initialize();
       final before = (await repository.load()).data;
+      expect(before, AppData.empty());
+      expect(await File('${directory.path}\\data.json').exists(), isTrue);
 
       workspace.switchDataset(TodoDataset.thousand);
       expect(workspace.isBenchmarkMode, isTrue);
       await workspace.flushNow();
       final after = (await repository.load()).data;
       expect(after, before);
-      expect(after.todos, hasLength(50));
+      expect(after.groups, isEmpty);
+      expect(after.projects, isEmpty);
+      expect(after.todos, isEmpty);
+      expect(after.trash, isEmpty);
     },
   );
 }

@@ -165,7 +165,7 @@ class TodoTreeService {
 
       // A depth beyond the contract is not allowed to fan out indefinitely.
       // Any unvisited descendants are promoted to a safe root pass below.
-      if (!isCollapsed(todo) && depth < maxTreeDepth) {
+      if (!isCollapsed(todo) && depth + 1 < maxTreeDepth) {
         for (final childId in index.childrenOf(id)) {
           visit(childId, depth + 1);
         }

@@ -1,13 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'icon_catalog.dart';
+import 'project_icons.dart';
 
-/// Lightweight local SVG widget used for project/sidebar affordances only.
-/// Todo rows intentionally keep their checkbox/indent path as Flutter base
-/// widgets to avoid turning every visible row into a heavyweight SVG subtree.
-class LocalProjectIcon extends StatelessWidget {
-  const LocalProjectIcon({
+/// Renders a persisted project [iconKey] from the checked-in IconPark assets.
+class ProjectIcon extends StatelessWidget {
+  const ProjectIcon({
     super.key,
     required this.iconKey,
     required this.color,
@@ -20,7 +18,7 @@ class LocalProjectIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entry = IconCatalog.resolve(iconKey);
+    final entry = ProjectIcons.resolve(iconKey);
     return SvgPicture.asset(
       entry.assetPath,
       width: size,

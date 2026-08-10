@@ -1,16 +1,69 @@
 import 'package:flutter/widgets.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import '../app_constants.dart';
+import 'project_palette.dart';
+
 class AppTheme {
   const AppTheme._();
 
-  static ShadThemeData get light => ShadThemeData(
-    brightness: Brightness.light,
-    radius: const BorderRadius.all(Radius.circular(8)),
-  );
+  static ShadThemeData get light => lightFor();
 
-  static ShadThemeData get dark => ShadThemeData(
-    brightness: Brightness.dark,
-    radius: const BorderRadius.all(Radius.circular(8)),
-  );
+  static ShadThemeData get dark => darkFor();
+
+  static ShadThemeData lightFor({
+    String accentColorKey = 'blue',
+    String fontFamilyKey = 'system',
+  }) => _build(Brightness.light, accentColorKey, fontFamilyKey);
+
+  static ShadThemeData darkFor({
+    String accentColorKey = 'blue',
+    String fontFamilyKey = 'system',
+  }) => _build(Brightness.dark, accentColorKey, fontFamilyKey);
+
+  static String fontFamilyFor(String key) {
+    return switch (key) {
+      'segoeUi' => AppConstants.fallbackFontFamily,
+      'geist' => 'Geist',
+      _ => AppConstants.systemFontFamily,
+    };
+  }
+
+  static List<String> fontFamilyFallbackFor(String key) {
+    return switch (key) {
+      'geist' => const <String>[
+        AppConstants.systemFontFamily,
+        AppConstants.fallbackFontFamily,
+      ],
+      'segoeUi' => const <String>[AppConstants.systemFontFamily],
+      _ => const <String>[AppConstants.fallbackFontFamily],
+    };
+  }
+
+  static ShadThemeData _build(
+    Brightness brightness,
+    String accentColorKey,
+    String fontFamilyKey,
+  ) {
+    final accent = ProjectPalette.resolve(accentColorKey).accent;
+    final base = ShadColorScheme.fromName('blue', brightness: brightness);
+    final colorScheme = base.copyWith(
+      primary: accent,
+      ring: accent,
+      selection: accent.withValues(
+        alpha: brightness == Brightness.dark ? .35 : .25,
+      ),
+      primaryForeground: brightness == Brightness.dark
+          ? const Color(0xFF12141A)
+          : const Color(0xFFFFFFFF),
+    );
+    return ShadThemeData(
+      brightness: brightness,
+      colorScheme: colorScheme,
+      textTheme: ShadTextTheme(
+        family: fontFamilyFor(fontFamilyKey),
+      ).apply(fontFamilyFallback: fontFamilyFallbackFor(fontFamilyKey)),
+      radius: const BorderRadius.all(Radius.circular(8)),
+    );
+  }
 }

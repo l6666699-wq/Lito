@@ -2,7 +2,14 @@ import 'dart:io';
 
 import 'package:tray_manager/tray_manager.dart';
 
-enum TrayAction { open, quickAdd, toggleAlwaysOnTop, toggleCompact, exit }
+enum TrayAction {
+  open,
+  quickAdd,
+  toggleAlwaysOnTop,
+  toggleCompact,
+  toggleLaunchAtStartup,
+  exit,
+}
 
 typedef TrayActionHandler = Future<void> Function(TrayAction action);
 
@@ -26,11 +33,79 @@ abstract interface class SystemTrayService {
   Future<void> update({required bool alwaysOnTop, required bool compact});
 }
 
+/// Optional state-aware tray surface.  Keeping this separate from
+/// [SystemTrayService] means existing platform doubles that only implement the
+/// original two-checkmark update contract remain source-compatible.
+abstract interface class SystemTrayStateService {
+  Future<void> updateLaunchAtStartup({required bool launchAtStartup});
+
+  Future<void> updateState({
+    required bool alwaysOnTop,
+    required bool compact,
+    required bool launchAtStartup,
+  });
+}
+
+/// Projects all available checkmarks while retaining compatibility with old
+/// services that do not know about the startup item yet.
+extension SystemTrayStateProjection on SystemTrayService {
+  Future<void> updateState({
+    required bool alwaysOnTop,
+    required bool compact,
+    required bool launchAtStartup,
+  }) async {
+    if (this is SystemTrayStateService) {
+      final stateService = this as SystemTrayStateService;
+      await stateService.updateState(
+        alwaysOnTop: alwaysOnTop,
+        compact: compact,
+        launchAtStartup: launchAtStartup,
+      );
+      return;
+    }
+    await update(alwaysOnTop: alwaysOnTop, compact: compact);
+  }
+}
+
+/// Creates the complete V1 menu in one place so the native implementation and
+/// platform fakes cannot drift in labels, ordering, or checkmark semantics.
+Menu buildLiteTodoTrayMenu({
+  required bool alwaysOnTop,
+  required bool compact,
+  required bool launchAtStartup,
+}) {
+  return Menu(
+    items: <MenuItem>[
+      MenuItem(key: 'open', label: '打开 LiteTodo'),
+      MenuItem(key: 'quick-add', label: '快速添加'),
+      MenuItem.separator(),
+      MenuItem.checkbox(
+        key: 'always-on-top',
+        label: '窗口置顶',
+        checked: alwaysOnTop,
+      ),
+      MenuItem.checkbox(key: 'compact', label: '紧凑模式', checked: compact),
+      MenuItem.separator(),
+      MenuItem.checkbox(
+        key: 'launch-at-startup',
+        label: '开机启动',
+        checked: launchAtStartup,
+      ),
+      MenuItem.separator(),
+      MenuItem(key: 'exit', label: '退出'),
+    ],
+  );
+}
+
 /// Windows implementation of the minimal LiteTodo tray menu.
-class WindowsSystemTrayService implements SystemTrayService, TrayListener {
+class WindowsSystemTrayService
+    implements SystemTrayService, SystemTrayStateService, TrayListener {
   TrayActionHandler? _handler;
   bool _initialized = false;
   String? _initializationError;
+  bool _alwaysOnTop = false;
+  bool _compact = false;
+  bool _launchAtStartup = false;
 
   String? get initializationError => _initializationError;
 
@@ -47,7 +122,11 @@ class WindowsSystemTrayService implements SystemTrayService, TrayListener {
     trayManager.addListener(this);
     await trayManager.setIcon(iconPath);
     await trayManager.setToolTip('LiteTodo');
-    await _setMenu(alwaysOnTop: false, compact: false);
+    await _setMenu(
+      alwaysOnTop: _alwaysOnTop,
+      compact: _compact,
+      launchAtStartup: _launchAtStartup,
+    );
     _initialized = true;
   }
 
@@ -65,27 +144,52 @@ class WindowsSystemTrayService implements SystemTrayService, TrayListener {
     required bool compact,
   }) async {
     if (!_initialized || !Platform.isWindows) return;
-    await _setMenu(alwaysOnTop: alwaysOnTop, compact: compact);
+    _alwaysOnTop = alwaysOnTop;
+    _compact = compact;
+    await _setMenu(
+      alwaysOnTop: _alwaysOnTop,
+      compact: _compact,
+      launchAtStartup: _launchAtStartup,
+    );
+  }
+
+  @override
+  Future<void> updateLaunchAtStartup({required bool launchAtStartup}) async {
+    if (!_initialized || !Platform.isWindows) return;
+    _launchAtStartup = launchAtStartup;
+    await _setMenu(
+      alwaysOnTop: _alwaysOnTop,
+      compact: _compact,
+      launchAtStartup: _launchAtStartup,
+    );
+  }
+
+  @override
+  Future<void> updateState({
+    required bool alwaysOnTop,
+    required bool compact,
+    required bool launchAtStartup,
+  }) async {
+    if (!_initialized || !Platform.isWindows) return;
+    _alwaysOnTop = alwaysOnTop;
+    _compact = compact;
+    _launchAtStartup = launchAtStartup;
+    await _setMenu(
+      alwaysOnTop: _alwaysOnTop,
+      compact: _compact,
+      launchAtStartup: _launchAtStartup,
+    );
   }
 
   Future<void> _setMenu({
     required bool alwaysOnTop,
     required bool compact,
+    required bool launchAtStartup,
   }) async {
-    final menu = Menu(
-      items: <MenuItem>[
-        MenuItem(key: 'open', label: '打开 LiteTodo'),
-        MenuItem(key: 'quick-add', label: '快速添加'),
-        MenuItem.separator(),
-        MenuItem.checkbox(
-          key: 'always-on-top',
-          label: '置顶窗口',
-          checked: alwaysOnTop,
-        ),
-        MenuItem.checkbox(key: 'compact', label: '桌面悬浮模式', checked: compact),
-        MenuItem.separator(),
-        MenuItem(key: 'exit', label: '退出'),
-      ],
+    final menu = buildLiteTodoTrayMenu(
+      alwaysOnTop: alwaysOnTop,
+      compact: compact,
+      launchAtStartup: launchAtStartup,
     );
     await trayManager.setContextMenu(menu);
   }
@@ -100,6 +204,7 @@ class WindowsSystemTrayService implements SystemTrayService, TrayListener {
       'quick-add' => TrayAction.quickAdd,
       'always-on-top' => TrayAction.toggleAlwaysOnTop,
       'compact' => TrayAction.toggleCompact,
+      'launch-at-startup' => TrayAction.toggleLaunchAtStartup,
       'exit' => TrayAction.exit,
       _ => null,
     };
@@ -119,12 +224,16 @@ class WindowsSystemTrayService implements SystemTrayService, TrayListener {
   void onTrayIconRightMouseUp() {}
 }
 
-class FakeSystemTrayService implements SystemTrayService {
+class FakeSystemTrayService
+    implements SystemTrayService, SystemTrayStateService {
   TrayActionHandler? _handler;
   bool initialized = false;
   bool disposed = false;
   bool alwaysOnTop = false;
   bool compact = false;
+  bool launchAtStartup = false;
+  int updateCount = 0;
+  int startupUpdateCount = 0;
   final List<TrayAction> actions = <TrayAction>[];
 
   @override
@@ -136,6 +245,7 @@ class FakeSystemTrayService implements SystemTrayService {
   @override
   Future<void> dispose() async {
     disposed = true;
+    initialized = false;
   }
 
   @override
@@ -143,8 +253,28 @@ class FakeSystemTrayService implements SystemTrayService {
     required bool alwaysOnTop,
     required bool compact,
   }) async {
+    updateCount += 1;
     this.alwaysOnTop = alwaysOnTop;
     this.compact = compact;
+  }
+
+  @override
+  Future<void> updateLaunchAtStartup({required bool launchAtStartup}) async {
+    startupUpdateCount += 1;
+    this.launchAtStartup = launchAtStartup;
+  }
+
+  @override
+  Future<void> updateState({
+    required bool alwaysOnTop,
+    required bool compact,
+    required bool launchAtStartup,
+  }) async {
+    updateCount += 1;
+    startupUpdateCount += 1;
+    this.alwaysOnTop = alwaysOnTop;
+    this.compact = compact;
+    this.launchAtStartup = launchAtStartup;
   }
 
   Future<void> tap(TrayAction action) async {

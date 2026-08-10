@@ -8,7 +8,7 @@ abstract interface class AppDataRepository {
   Future<void> save(AppData snapshot);
 }
 
-enum AppDataLoadSource { primary, previous, empty }
+enum AppDataLoadSource { primary, previous, backup, empty }
 
 /// Result of startup recovery.  A warning is intentionally data rather than a
 /// UI concern so callers can expose it as a non-blocking notification.
@@ -24,6 +24,9 @@ class AppDataLoadResult {
   final String? recoveryWarning;
 
   String? get warning => recoveryWarning;
-  bool get recovered => source == AppDataLoadSource.previous;
+  bool get recovered =>
+      source == AppDataLoadSource.previous ||
+      source == AppDataLoadSource.backup;
+  bool get isBackup => source == AppDataLoadSource.backup;
   bool get isInitial => source == AppDataLoadSource.empty;
 }
