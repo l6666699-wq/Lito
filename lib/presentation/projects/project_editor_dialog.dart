@@ -11,6 +11,29 @@ import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
 import 'project_icon_picker.dart';
 
+const BoxConstraints _projectEditorInputConstraints = BoxConstraints(
+  minHeight: 34,
+  maxHeight: 34,
+);
+
+const EdgeInsets _projectEditorInputPadding = EdgeInsets.symmetric(
+  horizontal: AppMetrics.unit * 2.5,
+  vertical: AppMetrics.unit,
+);
+
+ShadDecoration _projectEditorInputDecoration(AppColorScheme colors) {
+  final radius = BorderRadius.circular(AppMetrics.normalRadius);
+  return ShadDecoration(
+    border: ShadBorder.all(color: colors.border, width: .8, radius: radius),
+    focusedBorder: ShadBorder.all(
+      color: colors.focus,
+      width: .8,
+      radius: radius,
+    ),
+    secondaryFocusedBorder: ShadBorder.none,
+  );
+}
+
 class ProjectEditorDialog extends StatefulWidget {
   const ProjectEditorDialog({
     super.key,
@@ -107,14 +130,20 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _FieldLabel(label: '项目名称'),
-              const SizedBox(height: AppMetrics.unit),
+              const _FieldLabel(
+                key: ValueKey<String>('project-name-label'),
+                label: '项目名称',
+              ),
+              const SizedBox(height: AppMetrics.unit * 1.5),
               ShadInput(
                 key: const ValueKey<String>('project-name-input'),
                 controller: _nameController,
                 autofocus: !_editing,
                 placeholder: const Text('例如：个人成长'),
                 onSubmitted: (_) => _save(),
+                constraints: _projectEditorInputConstraints,
+                padding: _projectEditorInputPadding,
+                decoration: _projectEditorInputDecoration(colors),
               ),
               const SizedBox(height: AppMetrics.unit * 2.5),
               const _FieldLabel(label: '所属分组'),
@@ -281,13 +310,19 @@ class _ProjectGroupEditorDialogState extends State<ProjectGroupEditorDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _FieldLabel(label: '项目组名称'),
-              const SizedBox(height: AppMetrics.unit),
+              const _FieldLabel(
+                key: ValueKey<String>('project-group-name-label'),
+                label: '项目组名称',
+              ),
+              const SizedBox(height: AppMetrics.unit * 1.5),
               ShadInput(
                 key: const ValueKey<String>('project-group-name-input'),
                 controller: _nameController,
                 autofocus: !_editing,
                 placeholder: const Text('例如：工作'),
+                constraints: _projectEditorInputConstraints,
+                padding: _projectEditorInputPadding,
+                decoration: _projectEditorInputDecoration(colors),
               ),
               const SizedBox(height: AppMetrics.unit * 2.5),
               const _FieldLabel(label: '项目组颜色'),
@@ -415,7 +450,7 @@ class _EditorDialogHeader extends StatelessWidget {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label});
+  const _FieldLabel({super.key, required this.label});
 
   final String label;
 

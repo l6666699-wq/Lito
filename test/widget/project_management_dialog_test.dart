@@ -502,6 +502,12 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('project-name-label')),
+      findsOneWidget,
+    );
+    expect(find.text('项目颜色'), findsOneWidget);
+    expect(find.text('选择图标'), findsOneWidget);
+    expect(
       find.byKey(const ValueKey<String>('project-group-selector')),
       findsOneWidget,
     );

@@ -61,9 +61,9 @@ class _ProjectIconPickerState extends State<ProjectIconPicker> {
                 decoration: BoxDecoration(
                   color: colors.surface,
                   borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-                  border: Border.all(color: colors.border),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(width: AppMetrics.unit * 2),
                     Icon(AppIcons.search, size: 14, color: colors.textMuted),
@@ -84,6 +84,8 @@ class _ProjectIconPickerState extends State<ProjectIconPicker> {
                           horizontal: 0,
                           vertical: 0,
                         ),
+                        alignment: Alignment.centerLeft,
+                        placeholderAlignment: Alignment.centerLeft,
                         decoration: const ShadDecoration(border: null),
                         constraints: const BoxConstraints(minHeight: 28),
                       ),
