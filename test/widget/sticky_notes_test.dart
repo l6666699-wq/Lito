@@ -122,8 +122,16 @@ void main() {
     );
     expect(
       find.byKey(ValueKey<String>('sticky-edit-${firstRow.todo.id}')),
-      findsOneWidget,
+      findsNothing,
     );
+    final dragHandle = find.byKey(
+      ValueKey<String>('sticky-drag-handle-${firstRow.todo.id}'),
+    );
+    final checkbox = find.byKey(
+      ValueKey<String>('sticky-checkbox-${firstRow.todo.id}'),
+    );
+    expect(tester.getRect(dragHandle).width, greaterThan(0));
+    expect(tester.getRect(checkbox).width, greaterThan(0));
     final firstRowRect = tester.getRect(
       find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
     );
@@ -262,6 +270,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final dragHandle = find.byKey(
+      ValueKey<String>('sticky-drag-handle-${firstRow.todo.id}'),
+    );
+    expect(dragHandle, findsOneWidget);
+    final dragGesture = await tester.startGesture(tester.getCenter(dragHandle));
+    await dragGesture.up();
+    await tester.pump();
+
     await tester.tap(
       find.byKey(ValueKey<String>('sticky-checkbox-${firstRow.todo.id}')),
     );
@@ -274,9 +290,12 @@ void main() {
     );
 
     calls.clear();
-    await tester.tap(
-      find.byKey(ValueKey<String>('sticky-edit-${firstRow.todo.id}')),
+    final title = find.descendant(
+      of: find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
+      matching: find.text(firstRow.todo.title),
     );
+    expect(title, findsOneWidget);
+    await tester.tap(title);
     await tester.pumpAndSettle();
     final editor = find.descendant(
       of: find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),

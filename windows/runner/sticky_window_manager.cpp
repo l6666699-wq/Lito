@@ -192,6 +192,9 @@ bool StickyWindowManager::Open(const std::string& key,
                       Win32Window::Size(360, 520), kStickyWindowStyle)) {
     return false;
   }
+  // Keep the frameless WS_POPUP client origin (no top blank strip) while
+  // letting DWM provide the native rounded outer corners on Windows 11.
+  window->SetRoundedCorners(true);
   window->SetQuitOnClose(false);
   window->Show();
   windows_.emplace(key, std::move(window));

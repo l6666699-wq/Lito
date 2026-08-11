@@ -18,6 +18,8 @@ const _stickyHeaderHeight = AppMetrics.headerHeight + AppMetrics.unit * 2;
 const _stickyRowHeight = AppMetrics.todoRowHeight + AppMetrics.unit;
 const _stickyRowGap = AppMetrics.unit / 2;
 const _stickyRowHorizontalPadding = AppMetrics.unit;
+const _stickyControlSize = AppMetrics.iconSize + AppMetrics.unit * 2;
+const _stickyControlGap = AppMetrics.unit / 2;
 
 /// The content hosted by each native sticky-note engine.
 ///
@@ -505,7 +507,7 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
             children: [
               SizedBox(width: row.depth * AppMetrics.treeIndent),
               _StickyDragAffordance(todoId: row.todo.id),
-              const SizedBox(width: AppMetrics.unit),
+              const SizedBox(width: _stickyControlGap),
               if (widget.hasChildren)
                 Icon(
                   row.todo.collapsed
@@ -516,7 +518,7 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
                 )
               else
                 const SizedBox(width: AppMetrics.iconSize - 2),
-              const SizedBox(width: AppMetrics.unit),
+              const SizedBox(width: _stickyControlGap),
               _StickyCheckbox(
                 todoId: row.todo.id,
                 completed: completed,
@@ -528,7 +530,7 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
                   ),
                 ),
               ),
-              const SizedBox(width: AppMetrics.unit),
+              const SizedBox(width: _stickyControlGap),
               Expanded(
                 child: _editing
                     ? _StickyInlineEditor(
@@ -556,11 +558,6 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
                           ),
                         ),
                       ),
-              ),
-              _StickyEditAffordance(
-                todoId: row.todo.id,
-                onPressed: _beginEdit,
-                enabled: !_editing,
               ),
             ],
           ),
@@ -639,8 +636,8 @@ class _StickyDragAffordance extends StatelessWidget {
       enabled: false,
       label: '拖拽排序',
       child: SizedBox(
-        width: AppMetrics.windowControlSize,
-        height: AppMetrics.windowControlSize,
+        width: _stickyControlSize,
+        height: _stickyControlSize,
         child: Center(
           child: Icon(
             AppIcons.dragHandle,
@@ -683,8 +680,8 @@ class _StickyCheckbox extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onPointerUp: (_) => onToggle?.call(),
         child: SizedBox(
-          width: AppMetrics.windowControlSize,
-          height: AppMetrics.windowControlSize,
+          width: _stickyControlSize,
+          height: _stickyControlSize,
           child: Center(
             child: Container(
               width: AppMetrics.iconSize + 2,
@@ -703,44 +700,6 @@ class _StickyCheckbox extends StatelessWidget {
                   : partial
                   ? Icon(AppIcons.minus, color: colors.focus, size: 12)
                   : null,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StickyEditAffordance extends StatelessWidget {
-  const _StickyEditAffordance({
-    required this.todoId,
-    required this.onPressed,
-    required this.enabled,
-  });
-
-  final String todoId;
-  final VoidCallback? onPressed;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    return Semantics(
-      button: true,
-      enabled: enabled && onPressed != null,
-      label: '编辑任务',
-      child: Listener(
-        key: ValueKey<String>('sticky-edit-$todoId'),
-        behavior: HitTestBehavior.opaque,
-        onPointerUp: enabled ? (_) => onPressed?.call() : null,
-        child: SizedBox(
-          width: AppMetrics.windowControlSize,
-          height: AppMetrics.windowControlSize,
-          child: Center(
-            child: Icon(
-              AppIcons.edit,
-              size: AppMetrics.iconSize - 1,
-              color: colors.textFaint,
             ),
           ),
         ),

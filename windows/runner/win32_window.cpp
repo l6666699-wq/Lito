@@ -26,6 +26,13 @@ constexpr const wchar_t kGetPreferredBrightnessRegKey[] =
   L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
 constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme";
 
+// DWMWA_WINDOW_CORNER_PREFERENCE and DWMWCP_ROUND were added after the older
+// Windows SDKs that are still used to build some Flutter runners.  Keep the
+// numeric values local so the runner remains buildable with those SDKs.
+constexpr DWORD kDwmWindowCornerPreference = 33;
+constexpr DWORD kDwmCornerPreferenceDoNotRound = 1;
+constexpr DWORD kDwmCornerPreferenceRound = 2;
+
 // The number of Win32Window objects that currently exist.
 static int g_active_window_count = 0;
 
@@ -254,6 +261,15 @@ void Win32Window::StartDragging() {
   if (!window_handle_) return;
   ReleaseCapture();
   SendMessage(window_handle_, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+}
+
+void Win32Window::SetRoundedCorners(bool rounded) {
+  if (!window_handle_) return;
+
+  const DWORD preference =
+      rounded ? kDwmCornerPreferenceRound : kDwmCornerPreferenceDoNotRound;
+  DwmSetWindowAttribute(window_handle_, kDwmWindowCornerPreference,
+                        &preference, sizeof(preference));
 }
 
 RECT Win32Window::GetClientArea() {

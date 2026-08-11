@@ -49,6 +49,10 @@ class Win32Window {
   // Starts a native caption drag for frameless sticky windows.
   void StartDragging();
 
+  // Ask DWM to clip this top-level window with rounded corners.  This is
+  // intentionally opt-in so the primary window keeps its existing shape.
+  void SetRoundedCorners(bool rounded);
+
   // Returns the backing Window handle to enable clients to set icon and other
   // window properties. Returns nullptr if the window has been destroyed.
   HWND GetHandle();
