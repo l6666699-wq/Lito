@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../application/data_transfer_controller.dart';
@@ -54,6 +55,7 @@ Future<void> bootstrap(List<String> arguments) async {
   final hotkey = WindowsGlobalHotkeyService();
   final repository = await createDefaultAppDataRepository();
   final workspace = WorkspaceController(repository: repository);
+  installStickyMutationHandler(workspace);
   final settingsRepository = await createDefaultSettingsRepository();
   final settingsDirectory = await settingsRepository.dataDirectory;
   final appLog = AppLogService(dataDirectory: settingsDirectory);
@@ -251,6 +253,66 @@ Future<void> bootstrapStickyNotesWindow(
       windowKey: arguments.key,
     ),
   );
+}
+
+/// Installs the primary-engine endpoint for mutations originating in a
+/// secondary sticky-note engine.  The native runner forwards the request over
+/// the primary engine's channel; only this handler may mutate and flush the
+/// authoritative workspace.
+void installStickyMutationHandler(WorkspaceController workspace) {
+  const channel = MethodChannel('litetodo/sticky_windows');
+  channel.setMethodCallHandler((call) async {
+    if (call.method != 'mutation') return null;
+    final rawArguments = call.arguments;
+    if (rawArguments is! Map) {
+      throw PlatformException(
+        code: 'invalid_mutation',
+        message: 'The sticky mutation payload is invalid.',
+      );
+    }
+    final arguments = Map<String, Object?>.from(rawArguments);
+    final operation = arguments['operation'];
+    final todoId = arguments['todoId'] as String?;
+    switch (operation) {
+      case 'toggleCompleted':
+        if (todoId == null || todoId.isEmpty) {
+          throw PlatformException(
+            code: 'invalid_mutation',
+            message: 'A todo ID is required for completion changes.',
+          );
+        }
+        workspace.toggleTodoCompleted(todoId);
+        await workspace.flushNow();
+      case 'editTitle':
+        final title = arguments['title'] as String?;
+        if (todoId == null || todoId.isEmpty || title == null) {
+          throw PlatformException(
+            code: 'invalid_mutation',
+            message: 'A todo ID and title are required for edits.',
+          );
+        }
+        workspace.editTodoTitle(todoId, title);
+        await workspace.flushNow();
+      case 'addTodo':
+        final title = arguments['title'] as String?;
+        if (title == null || title.trim().isEmpty) {
+          throw PlatformException(
+            code: 'invalid_mutation',
+            message: 'A title is required for a new todo.',
+          );
+        }
+        await workspace.addTodoAndFlush(
+          title,
+          projectId: arguments['projectId'] as String?,
+        );
+      default:
+        throw PlatformException(
+          code: 'unknown_mutation',
+          message: 'Unsupported sticky mutation: $operation',
+        );
+    }
+    return null;
+  });
 }
 
 Future<void> _syncTrayStartupPreference(

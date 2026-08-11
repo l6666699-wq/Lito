@@ -25,6 +25,11 @@ class StickyWindowManager {
   StickyWindowManager(const StickyWindowManager&) = delete;
   StickyWindowManager& operator=(const StickyWindowManager&) = delete;
 
+  // The primary Flutter engine owns the JSON workspace.  Secondary sticky
+  // engines send mutation requests through this manager so they never write a
+  // private snapshot repository.
+  void SetPrimaryWindow(FlutterWindow* window) { primary_window_ = window; }
+
   void HandlePrimaryMethodCall(
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
@@ -44,6 +49,7 @@ class StickyWindowManager {
   std::string Snapshot(const std::string& key) const;
 
   const flutter::DartProject project_;
+  FlutterWindow* primary_window_ = nullptr;
   std::map<std::string, std::unique_ptr<FlutterWindow>> windows_;
   std::map<std::string, std::string> snapshots_;
 };

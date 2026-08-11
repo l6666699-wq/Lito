@@ -8,7 +8,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
 import '../../application/workspace_controller.dart';
 import '../../domain/models/visible_todo_row.dart';
-import '../../infrastructure/platform/sticky_notes_window_service.dart';
+import '../../infrastructure/platform/sticky_notes_window_service.dart'
+    show StickyNotesSecondaryChannel;
 import '../../icons/app_icons.dart';
 
 const _stickyWindowInset = AppMetrics.unit * 2;
@@ -31,12 +32,31 @@ class StickyNotesWindow extends StatelessWidget {
     required this.windowService,
     required this.projectId,
     required this.windowKey,
+    this.onToggleTodoCompleted,
+    this.onEditTodoTitle,
+    this.onAddTodo,
   });
 
   final WorkspaceController controller;
   final StickyNotesSecondaryChannel windowService;
   final String? projectId;
   final String windowKey;
+  final FutureOr<void> Function(String todoId)? onToggleTodoCompleted;
+  final FutureOr<void> Function(String todoId, String title)? onEditTodoTitle;
+  final FutureOr<void> Function(String title)? onAddTodo;
+
+  Future<void> _toggleTodoDirectly(String todoId) async {
+    controller.toggleTodoCompleted(todoId);
+    await controller.flushNow();
+  }
+
+  Future<void> _editTodoDirectly(String todoId, String title) async {
+    controller.editTodoTitle(todoId, title);
+    await controller.flushNow();
+  }
+
+  Future<void> _addTodoDirectly(String title) =>
+      controller.addTodoAndFlush(title, projectId: projectId);
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +101,10 @@ class StickyNotesWindow extends StatelessWidget {
                         for (final todo in controller.todos)
                           if (todo.parentId != null) todo.parentId!,
                       },
+                      onToggleTodoCompleted:
+                          onToggleTodoCompleted ?? _toggleTodoDirectly,
+                      onEditTodoTitle: onEditTodoTitle ?? _editTodoDirectly,
+                      onAddTodo: onAddTodo ?? _addTodoDirectly,
                     ),
                   ),
                 ),
@@ -216,16 +240,25 @@ class _StickyHeaderButton extends StatelessWidget {
   }
 }
 
-/// A deliberately read-only projection for secondary sticky-note windows.
+/// A lazily rendered todo projection used by sticky-note windows.
 ///
-/// The primary [TodoList] owns editing, completion and drag mutations. A
-/// sticky window must still show those familiar affordances for visual parity,
-/// but none of the controls below have an action or write back to the model.
+/// Secondary engines receive mutation callbacks that are routed to the
+/// primary workspace owner.  The callbacks are intentionally supplied by the
+/// parent instead of writing the snapshot controller directly.
 class _StickyTodoList extends StatefulWidget {
-  const _StickyTodoList({required this.rows, required this.parentIds});
+  const _StickyTodoList({
+    required this.rows,
+    required this.parentIds,
+    required this.onToggleTodoCompleted,
+    required this.onEditTodoTitle,
+    required this.onAddTodo,
+  });
 
   final List<VisibleTodoRow> rows;
   final Set<String> parentIds;
+  final FutureOr<void> Function(String todoId) onToggleTodoCompleted;
+  final FutureOr<void> Function(String todoId, String title) onEditTodoTitle;
+  final FutureOr<void> Function(String title) onAddTodo;
 
   @override
   State<_StickyTodoList> createState() => _StickyTodoListState();
@@ -233,62 +266,229 @@ class _StickyTodoList extends StatefulWidget {
 
 class _StickyTodoListState extends State<_StickyTodoList> {
   String? _selectedId;
+  late final TextEditingController _addController = TextEditingController();
+  late final FocusNode _addFocusNode = FocusNode(debugLabel: 'sticky-add-todo');
+  bool _addInFlight = false;
+
+  @override
+  void dispose() {
+    _addController.dispose();
+    _addFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitTodo() async {
+    if (_addInFlight) return;
+    final title = _addController.text.trim();
+    if (title.isEmpty) return;
+    setState(() => _addInFlight = true);
+    try {
+      await widget.onAddTodo(title);
+      if (mounted) {
+        _addController.clear();
+        _addFocusNode.requestFocus();
+      }
+    } finally {
+      if (mounted) setState(() => _addInFlight = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.rows.isEmpty) {
-      return const _StickyEmptyState();
-    }
-
-    return ListView.builder(
-      key: const ValueKey<String>('todo-list-builder'),
-      padding: const EdgeInsets.symmetric(
-        horizontal: _stickyListInset,
-        vertical: _stickyListInset,
-      ),
-      itemCount: widget.rows.length,
-      itemBuilder: (context, index) {
-        final row = widget.rows[index];
-        return _StickyTaskRow(
-          key: ValueKey<String>('sticky-task-row-${row.todo.id}'),
-          row: row,
-          hasChildren: widget.parentIds.contains(row.todo.id),
-          selected: _selectedId == row.todo.id,
-          onSelect: () => setState(() => _selectedId = row.todo.id),
-        );
-      },
+    return Column(
+      children: [
+        Expanded(
+          child: widget.rows.isEmpty
+              ? const _StickyEmptyState()
+              : ListView.builder(
+                  key: const ValueKey<String>('todo-list-builder'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _stickyListInset,
+                    vertical: _stickyListInset,
+                  ),
+                  itemCount: widget.rows.length,
+                  itemBuilder: (context, index) {
+                    final row = widget.rows[index];
+                    return _StickyTaskRow(
+                      key: ValueKey<String>('sticky-task-row-${row.todo.id}'),
+                      row: row,
+                      hasChildren: widget.parentIds.contains(row.todo.id),
+                      selected: _selectedId == row.todo.id,
+                      onSelect: () => setState(() => _selectedId = row.todo.id),
+                      onToggleTodoCompleted: widget.onToggleTodoCompleted,
+                      onEditTodoTitle: widget.onEditTodoTitle,
+                    );
+                  },
+                ),
+        ),
+        _StickyAddTodo(
+          controller: _addController,
+          focusNode: _addFocusNode,
+          submitting: _addInFlight,
+          onSubmitted: _submitTodo,
+        ),
+      ],
     );
   }
 }
 
-class _StickyTaskRow extends StatelessWidget {
+class _StickyAddTodo extends StatelessWidget {
+  const _StickyAddTodo({
+    required this.controller,
+    required this.focusNode,
+    required this.submitting,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool submitting;
+  final VoidCallback onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        _stickyListInset,
+        AppMetrics.unit,
+        _stickyListInset,
+        _stickyListInset,
+      ),
+      child: ShadInput(
+        key: const ValueKey<String>('sticky-add-todo-input'),
+        controller: controller,
+        focusNode: focusNode,
+        enabled: !submitting,
+        placeholder: Text(
+          '添加待办',
+          style: TextStyle(color: colors.textFaint, fontSize: 12),
+        ),
+        onSubmitted: (_) => onSubmitted(),
+        leading: Icon(
+          AppIcons.add,
+          size: AppMetrics.iconSize,
+          color: colors.focus,
+        ),
+        constraints: const BoxConstraints(minHeight: AppMetrics.rowHeight),
+      ),
+    );
+  }
+}
+
+class _StickyTaskRow extends StatefulWidget {
   const _StickyTaskRow({
     super.key,
     required this.row,
     required this.hasChildren,
     required this.selected,
     required this.onSelect,
+    required this.onToggleTodoCompleted,
+    required this.onEditTodoTitle,
   });
 
   final VisibleTodoRow row;
   final bool hasChildren;
   final bool selected;
   final VoidCallback onSelect;
+  final FutureOr<void> Function(String todoId) onToggleTodoCompleted;
+  final FutureOr<void> Function(String todoId, String title) onEditTodoTitle;
+
+  @override
+  State<_StickyTaskRow> createState() => _StickyTaskRowState();
+}
+
+class _StickyTaskRowState extends State<_StickyTaskRow> {
+  late final TextEditingController _editController = TextEditingController(
+    text: widget.row.todo.title,
+  );
+  late final FocusNode _editFocusNode = FocusNode(
+    debugLabel: 'sticky-inline-editor',
+  );
+  bool _editing = false;
+
+  @override
+  void didUpdateWidget(covariant _StickyTaskRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_editing && oldWidget.row.todo.title != widget.row.todo.title) {
+      _editController.text = widget.row.todo.title;
+    }
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    _editFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _beginEdit() {
+    if (_editing) return;
+    setState(() {
+      _editing = true;
+      _editController.value = TextEditingValue(
+        text: widget.row.todo.title,
+        selection: TextSelection(
+          baseOffset: 0,
+          extentOffset: widget.row.todo.title.length,
+        ),
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_editing) return;
+      _editFocusNode.requestFocus();
+      _editController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _editController.text.length,
+      );
+    });
+  }
+
+  void _cancelEdit() {
+    if (!mounted) return;
+    setState(() {
+      _editing = false;
+      _editController.text = widget.row.todo.title;
+    });
+  }
+
+  void _commitEdit() {
+    final title = _editController.text.trim();
+    if (title.isEmpty) {
+      _cancelEdit();
+      return;
+    }
+    setState(() => _editing = false);
+    unawaited(_submitEdit(title));
+  }
+
+  Future<void> _submitEdit(String title) async {
+    try {
+      await widget.onEditTodoTitle(widget.row.todo.id, title);
+    } catch (_) {
+      // The primary engine remains authoritative.  A later snapshot will
+      // restore the title if persistence or channel forwarding fails.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final row = widget.row;
     final completed = row.completionState == TodoVisualState.complete;
     final partial = row.completionState == TodoVisualState.partial;
     final titleColor = completed ? colors.textFaint : colors.text;
-    final rowBackground = selected ? colors.focusSoft : colors.transparent;
+    final rowBackground = widget.selected
+        ? colors.focusSoft
+        : colors.transparent;
 
     return Semantics(
       container: true,
-      selected: selected,
+      selected: widget.selected,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: onSelect,
+        onTap: widget.onSelect,
+        onDoubleTap: _beginEdit,
         child: AnimatedContainer(
           duration: Duration(milliseconds: AppMetrics.hoverDurationMs.round()),
           height: _stickyRowHeight,
@@ -306,7 +506,7 @@ class _StickyTaskRow extends StatelessWidget {
               SizedBox(width: row.depth * AppMetrics.treeIndent),
               _StickyDragAffordance(todoId: row.todo.id),
               const SizedBox(width: AppMetrics.unit),
-              if (hasChildren)
+              if (widget.hasChildren)
                 Icon(
                   row.todo.collapsed
                       ? AppIcons.chevronRight
@@ -322,26 +522,106 @@ class _StickyTaskRow extends StatelessWidget {
                 completed: completed,
                 partial: partial,
                 title: row.todo.title,
-              ),
-              const SizedBox(width: AppMetrics.unit),
-              Expanded(
-                child: Text(
-                  row.todo.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: titleColor,
-                    fontSize: 13,
-                    fontWeight: hasChildren ? FontWeight.w600 : null,
-                    decoration: completed ? TextDecoration.lineThrough : null,
+                onToggle: () => unawaited(
+                  Future<void>.sync(
+                    () => widget.onToggleTodoCompleted(row.todo.id),
                   ),
                 ),
               ),
-              _StickyEditAffordance(todoId: row.todo.id),
+              const SizedBox(width: AppMetrics.unit),
+              Expanded(
+                child: _editing
+                    ? _StickyInlineEditor(
+                        controller: _editController,
+                        focusNode: _editFocusNode,
+                        onSubmitted: (_) => _commitEdit(),
+                        onCancel: _cancelEdit,
+                      )
+                    : Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerUp: (_) => _beginEdit(),
+                        child: Text(
+                          row.todo.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: titleColor,
+                            fontSize: 13,
+                            fontWeight: widget.hasChildren
+                                ? FontWeight.w600
+                                : null,
+                            decoration: completed
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                      ),
+              ),
+              _StickyEditAffordance(
+                todoId: row.todo.id,
+                onPressed: _beginEdit,
+                enabled: !_editing,
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StickyInlineEditor extends StatelessWidget {
+  const _StickyInlineEditor({
+    required this.controller,
+    required this.focusNode,
+    required this.onSubmitted,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: EditableText(
+            controller: controller,
+            focusNode: focusNode,
+            style: TextStyle(color: colors.text, fontSize: 13),
+            cursorColor: colors.focus,
+            backgroundCursorColor: colors.textFaint,
+            selectionColor: colors.focusSoft,
+            maxLines: 1,
+            onSubmitted: onSubmitted,
+            autofocus: false,
+          ),
+        ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onSubmitted(controller.text),
+          child: Padding(
+            padding: const EdgeInsets.all(AppMetrics.unit),
+            child: Icon(AppIcons.check, size: 15, color: colors.focus),
+          ),
+        ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onCancel,
+          child: Padding(
+            padding: const EdgeInsets.all(AppMetrics.unit),
+            child: Icon(
+              AppIcons.windowClose,
+              size: 14,
+              color: colors.textMuted,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -379,43 +659,51 @@ class _StickyCheckbox extends StatelessWidget {
     required this.completed,
     required this.partial,
     required this.title,
+    required this.onToggle,
   });
 
   final String todoId;
   final bool completed;
   final bool partial;
   final String title;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final active = completed || partial;
     return Semantics(
-      key: ValueKey<String>('sticky-checkbox-$todoId'),
-      enabled: false,
+      button: onToggle != null,
+      enabled: onToggle != null,
       checked: active,
       label: title,
-      child: SizedBox(
-        width: AppMetrics.windowControlSize,
-        height: AppMetrics.windowControlSize,
-        child: Center(
-          child: Container(
-            width: AppMetrics.iconSize + 2,
-            height: AppMetrics.iconSize + 2,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: completed ? colors.focus : colors.transparent,
-              border: Border.all(
-                color: active ? colors.focus : colors.borderStrong,
-                width: 1.2,
+      onTap: onToggle,
+      child: Listener(
+        key: ValueKey<String>('sticky-checkbox-$todoId'),
+        behavior: HitTestBehavior.opaque,
+        onPointerUp: (_) => onToggle?.call(),
+        child: SizedBox(
+          width: AppMetrics.windowControlSize,
+          height: AppMetrics.windowControlSize,
+          child: Center(
+            child: Container(
+              width: AppMetrics.iconSize + 2,
+              height: AppMetrics.iconSize + 2,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: completed ? colors.focus : colors.transparent,
+                border: Border.all(
+                  color: active ? colors.focus : colors.borderStrong,
+                  width: 1.2,
+                ),
+                borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
               ),
-              borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+              child: completed
+                  ? Icon(AppIcons.check, color: colors.white, size: 12)
+                  : partial
+                  ? Icon(AppIcons.minus, color: colors.focus, size: 12)
+                  : null,
             ),
-            child: completed
-                ? Icon(AppIcons.check, color: colors.white, size: 12)
-                : partial
-                ? Icon(AppIcons.minus, color: colors.focus, size: 12)
-                : null,
           ),
         ),
       ),
@@ -424,26 +712,36 @@ class _StickyCheckbox extends StatelessWidget {
 }
 
 class _StickyEditAffordance extends StatelessWidget {
-  const _StickyEditAffordance({required this.todoId});
+  const _StickyEditAffordance({
+    required this.todoId,
+    required this.onPressed,
+    required this.enabled,
+  });
 
   final String todoId;
+  final VoidCallback? onPressed;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     return Semantics(
-      key: ValueKey<String>('sticky-edit-$todoId'),
       button: true,
-      enabled: false,
+      enabled: enabled && onPressed != null,
       label: '编辑任务',
-      child: SizedBox(
-        width: AppMetrics.windowControlSize,
-        height: AppMetrics.windowControlSize,
-        child: Center(
-          child: Icon(
-            AppIcons.edit,
-            size: AppMetrics.iconSize - 1,
-            color: colors.textFaint,
+      child: Listener(
+        key: ValueKey<String>('sticky-edit-$todoId'),
+        behavior: HitTestBehavior.opaque,
+        onPointerUp: enabled ? (_) => onPressed?.call() : null,
+        child: SizedBox(
+          width: AppMetrics.windowControlSize,
+          height: AppMetrics.windowControlSize,
+          child: Center(
+            child: Icon(
+              AppIcons.edit,
+              size: AppMetrics.iconSize - 1,
+              color: colors.textFaint,
+            ),
           ),
         ),
       ),

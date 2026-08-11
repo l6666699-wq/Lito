@@ -33,6 +33,18 @@ class StickyNotesSecondaryApp extends StatelessWidget {
         windowService: windowService,
         projectId: projectId,
         windowKey: windowKey,
+        onToggleTodoCompleted: (todoId) =>
+            windowService.mutate(operation: 'toggleCompleted', todoId: todoId),
+        onEditTodoTitle: (todoId, title) => windowService.mutate(
+          operation: 'editTitle',
+          todoId: todoId,
+          title: title,
+        ),
+        onAddTodo: (title) => windowService.mutate(
+          operation: 'addTodo',
+          title: title,
+          projectId: projectId,
+        ),
       ),
     );
   }

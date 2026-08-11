@@ -241,6 +241,24 @@ class StickyNotesSecondaryChannel {
   Future<void> startDragging(String key) async {
     await _channel.invokeMethod<void>('drag', <String, Object?>{'key': key});
   }
+
+  /// Sends a user mutation from a secondary sticky engine to the primary
+  /// workspace owner.  The secondary engine never applies the mutation to its
+  /// snapshot controller; the native runner forwards this payload to the
+  /// primary engine, which performs the mutation and flushes the JSON source.
+  Future<void> mutate({
+    required String operation,
+    String? todoId,
+    String? title,
+    String? projectId,
+  }) async {
+    await _channel.invokeMethod<void>('mutate', <String, Object?>{
+      'operation': operation,
+      'todoId': todoId,
+      'title': title,
+      'projectId': projectId,
+    });
+  }
 }
 
 typedef ValueChanged<T> = void Function(T value);

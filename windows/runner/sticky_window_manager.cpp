@@ -13,7 +13,12 @@ constexpr char kKeyField[] = "key";
 constexpr char kProjectIdField[] = "projectId";
 constexpr char kSnapshotField[] = "snapshot";
 constexpr char kValueField[] = "value";
-constexpr DWORD kStickyWindowStyle = WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX;
+// Sticky notes draw their own header and must start at the visible window
+// origin.  WS_THICKFRAME adds a DPI-scaled non-client resize frame around the
+// client area (including a top border), which otherwise appears as a blank
+// strip above the Flutter surface.  The header still starts a native drag via
+// HTCAPTION, so a system caption/frame is not needed here.
+constexpr DWORD kStickyWindowStyle = WS_POPUP;
 
 const flutter::EncodableMap* AsMap(const flutter::EncodableValue* value) {
   if (value == nullptr) return nullptr;
@@ -134,6 +139,16 @@ void StickyWindowManager::HandleSecondaryMethodCall(
     return;
   }
   const auto* arguments = AsMap(call.arguments());
+  if (call.method_name() == "mutate") {
+    if (arguments == nullptr || primary_window_ == nullptr) {
+      result->Error("mutation_unavailable",
+                    "The primary workspace is not available.");
+      return;
+    }
+    primary_window_->SendStickyMutation(*arguments);
+    result->Success();
+    return;
+  }
   if (call.method_name() == "close") {
     Close(key);
     result->Success();

@@ -135,10 +135,7 @@ void main() {
       ),
     );
     expect(firstRowRect.left - cardRect.left, closeTo(AppMetrics.unit, 0.1));
-    expect(
-      firstRowRect.top - cardRect.top,
-      closeTo(AppMetrics.unit, 0.1),
-    );
+    expect(firstRowRect.top - cardRect.top, closeTo(AppMetrics.unit, 0.1));
     expect(headerRect.height / firstRowRect.height, closeTo(1.579, 0.05));
 
     final completedRows = rows
@@ -162,6 +159,10 @@ void main() {
       find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
     );
     await tester.pump();
+    // The row also exposes a double-tap edit gesture. Let its recognizer
+    // settle before finishing the test so no pending timer leaks into the
+    // next widget test.
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
       workspace.todos.firstWhere((todo) => todo.id == firstRow.todo.id),
       firstRow.todo,
@@ -211,5 +212,102 @@ void main() {
     await tester.pump();
     expect(calls.where((call) => call.method == 'drag'), hasLength(1));
     expect(calls.where((call) => call.method == 'close'), hasLength(1));
+  });
+
+  testWidgets('sticky mutations route through the primary channel', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    final project = workspace.projects.first;
+    final rows = workspace.visibleRowsForProject(project.id);
+    final firstRow = rows.first;
+    final channel = const MethodChannel('litetodo/sticky_windows');
+    final calls = <MethodCall>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return null;
+    });
+    final stickyChannel = StickyNotesSecondaryChannel(channel: channel);
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+      workspace.dispose();
+    });
+
+    await tester.pumpWidget(
+      ShadApp(
+        theme: AppTheme.lightFor(),
+        home: StickyNotesWindow(
+          controller: workspace,
+          windowService: stickyChannel,
+          projectId: project.id,
+          windowKey: StickyNotesController.keyFor(project.id),
+          onToggleTodoCompleted: (todoId) => stickyChannel.mutate(
+            operation: 'toggleCompleted',
+            todoId: todoId,
+          ),
+          onEditTodoTitle: (todoId, title) => stickyChannel.mutate(
+            operation: 'editTitle',
+            todoId: todoId,
+            title: title,
+          ),
+          onAddTodo: (title) => stickyChannel.mutate(
+            operation: 'addTodo',
+            title: title,
+            projectId: project.id,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(ValueKey<String>('sticky-checkbox-${firstRow.todo.id}')),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, hasLength(1));
+    expect(calls.single.method, 'mutate');
+    expect(
+      (calls.single.arguments as Map<Object?, Object?>)['operation'],
+      'toggleCompleted',
+    );
+
+    calls.clear();
+    await tester.tap(
+      find.byKey(ValueKey<String>('sticky-edit-${firstRow.todo.id}')),
+    );
+    await tester.pumpAndSettle();
+    final editor = find.descendant(
+      of: find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(editor, '便签编辑后');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(calls, hasLength(1));
+    expect(
+      (calls.single.arguments as Map<Object?, Object?>)['operation'],
+      'editTitle',
+    );
+    expect((calls.single.arguments as Map<Object?, Object?>)['title'], '便签编辑后');
+
+    calls.clear();
+    final addInput = find.descendant(
+      of: find.byKey(const ValueKey<String>('sticky-add-todo-input')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(addInput, '项目便签新增');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(calls, hasLength(1));
+    expect(
+      (calls.single.arguments as Map<Object?, Object?>)['operation'],
+      'addTodo',
+    );
+    expect(
+      (calls.single.arguments as Map<Object?, Object?>)['projectId'],
+      project.id,
+    );
   });
 }

@@ -25,6 +25,7 @@ class FlutterWindow : public Win32Window {
   bool IsStickyWindow() const { return !sticky_key_.empty(); }
   const std::string& sticky_key() const { return sticky_key_; }
   void SendStickySnapshot(const std::string& snapshot);
+  void SendStickyMutation(const flutter::EncodableMap& mutation);
 
  protected:
   // Win32Window:

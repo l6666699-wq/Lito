@@ -27,6 +27,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   StickyWindowManager sticky_window_manager(project);
   FlutterWindow window(project, &sticky_window_manager);
+  sticky_window_manager.SetPrimaryWindow(&window);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"litetodo", origin, size)) {

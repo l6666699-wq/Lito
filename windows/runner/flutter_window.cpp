@@ -110,3 +110,11 @@ void FlutterWindow::SendStickySnapshot(const std::string& snapshot) {
   sticky_channel_->InvokeMethod(
       "update", std::make_unique<flutter::EncodableValue>(snapshot));
 }
+
+void FlutterWindow::SendStickyMutation(
+    const flutter::EncodableMap& mutation) {
+  if (sticky_channel_ == nullptr) return;
+  sticky_channel_->InvokeMethod(
+      "mutation",
+      std::make_unique<flutter::EncodableValue>(mutation));
+}
