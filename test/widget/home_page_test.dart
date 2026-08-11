@@ -4,7 +4,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'package:litetodo/application/workspace_controller.dart';
+import 'package:litetodo/domain/models/app_data.dart';
+import 'package:litetodo/infrastructure/persistence/app_data_repository.dart';
 import 'package:litetodo/presentation/home/home_page.dart';
+
+class _EmptyRepository implements AppDataRepository {
+  AppData saved = AppData.empty();
+
+  @override
+  Future<AppDataLoadResult> load() async => AppDataLoadResult(
+    data: AppData.empty(),
+    source: AppDataLoadSource.primary,
+  );
+
+  @override
+  Future<void> save(AppData snapshot) async {
+    saved = snapshot;
+  }
+}
 
 void main() {
   Future<void> pumpHome(
@@ -233,5 +250,26 @@ void main() {
       await pumpHome(tester, WorkspaceController(), size: size);
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('empty workspace can create its first root Todo', (tester) async {
+    final repository = _EmptyRepository();
+    final controller = WorkspaceController(repository: repository);
+    await controller.initialize();
+    await pumpHome(tester, controller, size: const Size(860, 620));
+
+    await tester.tap(find.byKey(const ValueKey<String>('home-add-todo')));
+    await tester.pump();
+    await tester.enterText(find.byType(EditableText).last, 'first root');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(controller.todos.map((todo) => todo.title), <String>['first root']);
+    expect(repository.saved.todos.single.title, 'first root');
+    expect(
+      find.byKey(const ValueKey<String>('todo-inline-composer')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
   });
 }

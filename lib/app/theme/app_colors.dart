@@ -82,7 +82,11 @@ class AppColors {
   );
 
   static AppColorScheme of(BuildContext context) {
-    final shadTheme = ShadTheme.maybeOf(context, listen: false);
+    // Depend on the live Shad theme so an inherited theme swap rebuilds every
+    // surface that resolves AppColors during the same frame.  Using
+    // `listen: false` here left already-mounted pages painted with the old
+    // palette until some unrelated controller change happened.
+    final shadTheme = ShadTheme.maybeOf(context);
     final brightness =
         shadTheme?.brightness ??
         MediaQuery.maybePlatformBrightnessOf(context) ??

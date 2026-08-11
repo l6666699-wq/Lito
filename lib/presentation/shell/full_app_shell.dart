@@ -259,6 +259,7 @@ class _Topbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     return DecoratedBox(
+      key: const ValueKey<String>('shell-topbar'),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(bottom: BorderSide(color: colors.border)),
@@ -269,131 +270,163 @@ class _Topbar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 3),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final showUtilityActions = constraints.maxWidth >= 900;
+              final compactTopbar = constraints.maxWidth < 560;
               return Row(
                 children: [
-                  Visibility(
-                    visible: false,
-                    child: ListenableBuilder(
-                      listenable: Listenable.merge(<Listenable>[
-                        controller,
-                        navigationController,
-                      ]),
-                      builder: (context, child) => _TopbarTitle(
-                        controller: controller,
-                        navigationController: navigationController,
-                      ),
-                    ),
-                  ),
-                  ShadButton.ghost(
-                    key: const ValueKey<String>('shell-add-task-button'),
-                    onPressed: windowController.openQuickAdd,
-                    height: 34,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    foregroundColor: colors.focus,
-                    backgroundColor: colors.focusSoft,
-                    hoverBackgroundColor: colors.focusSoft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        const Icon(AppIcons.add, size: 15),
-                        const SizedBox(width: AppMetrics.unit),
-                        // Keep the previous copy in the source for migration
-                        // parity; the wide shell follows the reference copy.
-                        const Text('新建任务', style: TextStyle(fontSize: 12)),
+                        Positioned.fill(
+                          child: WindowDragRegion(
+                            controller: windowController,
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              Visibility(
+                                visible: false,
+                                child: ListenableBuilder(
+                                  listenable: Listenable.merge(<Listenable>[
+                                    controller,
+                                    navigationController,
+                                  ]),
+                                  builder: (context, child) => _TopbarTitle(
+                                    controller: controller,
+                                    navigationController: navigationController,
+                                  ),
+                                ),
+                              ),
+                              ShadButton.ghost(
+                                key: const ValueKey<String>(
+                                  'shell-add-task-button',
+                                ),
+                                onPressed: windowController.openQuickAdd,
+                                height: 34,
+                                width: compactTopbar ? 34 : null,
+                                padding: compactTopbar
+                                    ? EdgeInsets.zero
+                                    : const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                foregroundColor: colors.focus,
+                                backgroundColor: colors.focusSoft,
+                                hoverBackgroundColor: colors.focusSoft,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(AppIcons.add, size: 15),
+                                    if (!compactTopbar) ...[
+                                      const SizedBox(width: AppMetrics.unit),
+                                      // Keep the previous copy in the source for migration
+                                      // parity; the wide shell follows the reference copy.
+                                      const Text(
+                                        '新建任务',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              // Preserve the prior source literal while keeping the
+                              // reference label visible in the shell.
+                              const Visibility(
+                                visible: false,
+                                child: Text('新增任务'),
+                              ),
+                              const SizedBox(width: AppMetrics.unit * 3),
+                              Flexible(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 358,
+                                  ),
+                                  child: _SearchField(
+                                    controller: controller,
+                                    focusNode: searchFocusNode,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  // Preserve the prior source literal while keeping the
-                  // reference label visible in the shell.
-                  const Visibility(visible: false, child: Text('新增任务')),
-                  const SizedBox(width: AppMetrics.unit * 3),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minWidth: constraints.maxWidth >= 760 ? 180 : 100,
-                        maxWidth: 358,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListenableBuilder(
+                        listenable: navigationController,
+                        builder: (context, child) => _TopbarButton(
+                          controlKey: const ValueKey<String>(
+                            'shell-statistics-button',
+                          ),
+                          icon: AppIcons.statistics,
+                          label: '统计',
+                          active:
+                              navigationController.page == AppPage.statistics,
+                          onPressed: navigationController.goStatistics,
+                        ),
                       ),
-                      child: _SearchField(
-                        controller: controller,
-                        focusNode: searchFocusNode,
+                      ListenableBuilder(
+                        listenable: navigationController,
+                        builder: (context, child) => _TopbarButton(
+                          controlKey: const ValueKey<String>(
+                            'shell-settings-button',
+                          ),
+                          icon: AppIcons.settings,
+                          label: '设置',
+                          active: navigationController.page == AppPage.settings,
+                          onPressed: navigationController.goSettings,
+                        ),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: WindowDragRegion(
-                      controller: windowController,
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                  if (showUtilityActions) ...[
-                    _TopbarButton(
-                      icon: AppIcons.clock,
-                      label: '时钟',
-                      active: false,
-                      onPressed: null,
-                      enabled: false,
-                    ),
-                  ],
-                  ListenableBuilder(
-                    listenable: navigationController,
-                    builder: (context, child) => _TopbarButton(
-                      icon: AppIcons.statistics,
-                      label: '统计',
-                      active: navigationController.page == AppPage.statistics,
-                      onPressed: navigationController.goStatistics,
-                    ),
-                  ),
-                  if (showUtilityActions) ...[
-                    _TopbarButton(
-                      icon: AppIcons.notification,
-                      label: '通知',
-                      active: false,
-                      onPressed: null,
-                      enabled: false,
-                    ),
-                  ],
-                  ListenableBuilder(
-                    listenable: navigationController,
-                    builder: (context, child) => _TopbarButton(
-                      icon: AppIcons.settings,
-                      label: '设置',
-                      active: navigationController.page == AppPage.settings,
-                      onPressed: navigationController.goSettings,
-                    ),
-                  ),
-                  if (constraints.maxWidth >= 600) ...[
-                    _TopbarDivider(),
-                    _TopbarButton(
-                      icon: AppIcons.theme,
-                      label: '主题',
-                      active: false,
-                      onPressed: onToggleTheme,
-                      enabled: onToggleTheme != null,
-                    ),
-                  ],
-                  _WindowCaptionButton(
-                    icon: AppIcons.windowMinimize,
-                    tooltip: '最小化',
-                    onPressed: windowController.minimize,
-                  ),
-                  ListenableBuilder(
-                    listenable: windowController,
-                    builder: (context, child) => _WindowCaptionButton(
-                      icon: AppIcons.windowMaximize,
-                      tooltip: windowController.isMaximized ? '还原' : '最大化',
-                      onPressed: windowController.toggleMaximize,
-                    ),
-                  ),
-                  ListenableBuilder(
-                    listenable: windowController,
-                    builder: (context, child) => _WindowCaptionButton(
-                      icon: AppIcons.windowClose,
-                      tooltip: windowController.closeToTray
-                          ? '隐藏到托盘'
-                          : '退出 LiteTodo',
-                      onPressed: windowController.close,
-                    ),
+                      _TopbarDivider(),
+                      _TopbarButton(
+                        controlKey: const ValueKey<String>(
+                          'shell-theme-button',
+                        ),
+                        icon: AppIcons.theme,
+                        label: '主题',
+                        active: false,
+                        onPressed: onToggleTheme,
+                        enabled: onToggleTheme != null,
+                      ),
+                      _WindowCaptionButton(
+                        controlKey: const ValueKey<String>(
+                          'shell-window-minimize-button',
+                        ),
+                        icon: AppIcons.windowMinimize,
+                        tooltip: '最小化',
+                        onPressed: windowController.minimize,
+                      ),
+                      ListenableBuilder(
+                        listenable: windowController,
+                        builder: (context, child) => _WindowCaptionButton(
+                          controlKey: const ValueKey<String>(
+                            'shell-window-maximize-button',
+                          ),
+                          icon: AppIcons.windowMaximize,
+                          tooltip: windowController.isMaximized ? '还原' : '最大化',
+                          onPressed: windowController.toggleMaximize,
+                        ),
+                      ),
+                      ListenableBuilder(
+                        listenable: windowController,
+                        builder: (context, child) => _WindowCaptionButton(
+                          controlKey: const ValueKey<String>(
+                            'shell-window-close-button',
+                          ),
+                          icon: AppIcons.windowClose,
+                          tooltip: windowController.closeToTray
+                              ? '隐藏到托盘'
+                              : '退出 LiteTodo',
+                          onPressed: windowController.close,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -590,6 +623,7 @@ class _SearchFieldState extends State<_SearchField> {
 
 class _TopbarButton extends StatelessWidget {
   const _TopbarButton({
+    this.controlKey,
     required this.icon,
     required this.label,
     required this.active,
@@ -597,6 +631,7 @@ class _TopbarButton extends StatelessWidget {
     this.enabled = true,
   });
 
+  final Key? controlKey;
   final IconData icon;
   final String label;
   final bool active;
@@ -606,17 +641,27 @@ class _TopbarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return ShadTooltip(
-      builder: (context) => Text(label),
-      child: ShadButton.ghost(
-        onPressed: enabled ? onPressed : null,
-        height: 34,
-        width: 32,
-        padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
-        foregroundColor: active ? colors.focus : colors.textMuted,
-        backgroundColor: active ? colors.focusSoft : null,
-        hoverBackgroundColor: colors.focusSoft,
-        child: Icon(icon, size: 16),
+    return SizedBox(
+      key: controlKey,
+      width: 32,
+      height: 34,
+      child: Semantics(
+        button: true,
+        child: ShadTooltip(
+          builder: (context) => Text(label),
+          child: ShadButton.ghost(
+            onPressed: enabled ? onPressed : null,
+            height: 34,
+            width: 32,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppMetrics.unit * 2,
+            ),
+            foregroundColor: active ? colors.focus : colors.textMuted,
+            backgroundColor: active ? colors.focusSoft : null,
+            hoverBackgroundColor: colors.focusSoft,
+            child: Icon(icon, size: 16),
+          ),
+        ),
       ),
     );
   }
@@ -624,11 +669,13 @@ class _TopbarButton extends StatelessWidget {
 
 class _WindowCaptionButton extends StatelessWidget {
   const _WindowCaptionButton({
+    this.controlKey,
     required this.icon,
     required this.tooltip,
     required this.onPressed,
   });
 
+  final Key? controlKey;
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
@@ -636,19 +683,24 @@ class _WindowCaptionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return ShadTooltip(
-      builder: (context) => Text(tooltip),
-      child: Semantics(
-        label: tooltip,
-        button: true,
-        child: ShadButton.ghost(
-          onPressed: onPressed,
-          height: AppMetrics.windowControlSize,
-          width: AppMetrics.windowControlSize,
-          padding: EdgeInsets.zero,
-          foregroundColor: colors.textMuted,
-          hoverBackgroundColor: colors.focusSoft,
-          child: Icon(icon, size: 15),
+    return SizedBox(
+      key: controlKey,
+      width: AppMetrics.windowControlSize,
+      height: AppMetrics.windowControlSize,
+      child: ShadTooltip(
+        builder: (context) => Text(tooltip),
+        child: Semantics(
+          label: tooltip,
+          button: true,
+          child: ShadButton.ghost(
+            onPressed: onPressed,
+            height: AppMetrics.windowControlSize,
+            width: AppMetrics.windowControlSize,
+            padding: EdgeInsets.zero,
+            foregroundColor: colors.textMuted,
+            hoverBackgroundColor: colors.focusSoft,
+            child: Icon(icon, size: 15),
+          ),
         ),
       ),
     );

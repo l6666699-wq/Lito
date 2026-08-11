@@ -50,10 +50,23 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
     final colors = AppColors.of(context);
     return ShadDialog(
       key: const ValueKey<String>('project-editor-dialog'),
-      title: Text(_editing ? '编辑项目' : '新建项目'),
-      description: const Text('名称、颜色、图标和所属分组可以随时调整。'),
-      constraints: const BoxConstraints(minWidth: 340, maxWidth: 520),
+      title: _EditorDialogHeader(
+        title: _editing ? '编辑项目' : '新建项目',
+        description: '名称、颜色、图标和所属分组可以随时调整。',
+        iconKey: _iconKey,
+        colorKey: _colorKey,
+      ),
+      backgroundColor: colors.surface,
+      border: Border.all(color: colors.borderStrong),
+      padding: const EdgeInsets.all(AppMetrics.unit * 5),
+      gap: AppMetrics.unit * 2,
+      constraints: BoxConstraints(
+        minWidth: 360,
+        maxWidth: 560,
+        maxHeight: _editorMaxHeight(context),
+      ),
       scrollable: true,
+      actionsGap: AppMetrics.unit * 2,
       actions: [
         ShadButton.ghost(
           key: const ValueKey<String>('project-editor-cancel'),
@@ -66,59 +79,52 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
           child: Text(_editing ? '保存' : '创建'),
         ),
       ],
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * .76,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _FieldLabel(label: '项目名称'),
-              const SizedBox(height: AppMetrics.unit),
-              ShadInput(
-                key: const ValueKey<String>('project-name-input'),
-                controller: _nameController,
-                autofocus: !_editing,
-                placeholder: const Text('例如：个人成长'),
-                onSubmitted: (_) => _save(),
-              ),
-              const SizedBox(height: AppMetrics.unit * 3),
-              _FieldLabel(label: '所属分组'),
-              const SizedBox(height: AppMetrics.unit),
-              _GroupSelector(
-                controller: widget.controller,
-                value: _groupId,
-                expanded: _showGroups,
-                onToggle: () => setState(() => _showGroups = !_showGroups),
-                onChanged: (value) => setState(() {
-                  _groupId = value;
-                  _showGroups = false;
-                }),
-              ),
-              const SizedBox(height: AppMetrics.unit * 3),
-              _FieldLabel(label: '项目颜色'),
-              const SizedBox(height: AppMetrics.unit),
-              _PalettePicker(
-                value: _colorKey,
-                onChanged: (value) => setState(() => _colorKey = value),
-              ),
-              const SizedBox(height: AppMetrics.unit * 3),
-              ProjectIconPicker(
-                value: _iconKey,
-                onChanged: (value) => setState(() => _iconKey = value),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: AppMetrics.unit * 2),
-                Text(
-                  _error!,
-                  key: const ValueKey<String>('project-editor-error'),
-                  style: TextStyle(color: colors.focus, fontSize: 11),
-                ),
-              ],
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _FieldLabel(label: '项目名称'),
+          const SizedBox(height: AppMetrics.unit),
+          ShadInput(
+            key: const ValueKey<String>('project-name-input'),
+            controller: _nameController,
+            autofocus: !_editing,
+            placeholder: const Text('例如：个人成长'),
+            onSubmitted: (_) => _save(),
           ),
-        ),
+          const SizedBox(height: AppMetrics.unit * 2.5),
+          const _FieldLabel(label: '所属分组'),
+          const SizedBox(height: AppMetrics.unit),
+          _GroupSelector(
+            controller: widget.controller,
+            value: _groupId,
+            expanded: _showGroups,
+            onToggle: () => setState(() => _showGroups = !_showGroups),
+            onChanged: (value) => setState(() {
+              _groupId = value;
+              _showGroups = false;
+            }),
+          ),
+          const SizedBox(height: AppMetrics.unit * 2.5),
+          const _FieldLabel(label: '项目颜色'),
+          const SizedBox(height: AppMetrics.unit),
+          _PalettePicker(
+            value: _colorKey,
+            onChanged: (value) => setState(() => _colorKey = value),
+          ),
+          const SizedBox(height: AppMetrics.unit * 2.5),
+          ProjectIconPicker(
+            value: _iconKey,
+            onChanged: (value) => setState(() => _iconKey = value),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: AppMetrics.unit * 2),
+            _EditorError(
+              key: const ValueKey<String>('project-editor-error'),
+              message: _error!,
+              colors: colors,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -191,10 +197,23 @@ class _ProjectGroupEditorDialogState extends State<ProjectGroupEditorDialog> {
     final colors = AppColors.of(context);
     return ShadDialog(
       key: const ValueKey<String>('project-group-editor-dialog'),
-      title: Text(_editing ? '编辑项目组' : '新建项目组'),
-      description: const Text('将相关项目放在一起，侧栏可以折叠分组。'),
-      constraints: const BoxConstraints(minWidth: 340, maxWidth: 520),
+      title: _EditorDialogHeader(
+        title: _editing ? '编辑项目组' : '新建项目组',
+        description: '将相关项目放在一起，侧栏可以折叠分组。',
+        iconKey: _iconKey,
+        colorKey: _colorKey,
+      ),
+      backgroundColor: colors.surface,
+      border: Border.all(color: colors.borderStrong),
+      padding: const EdgeInsets.all(AppMetrics.unit * 5),
+      gap: AppMetrics.unit * 2,
+      constraints: BoxConstraints(
+        minWidth: 360,
+        maxWidth: 560,
+        maxHeight: _editorMaxHeight(context),
+      ),
       scrollable: true,
+      actionsGap: AppMetrics.unit * 2,
       actions: [
         ShadButton.ghost(
           key: const ValueKey<String>('project-group-editor-cancel'),
@@ -207,45 +226,38 @@ class _ProjectGroupEditorDialogState extends State<ProjectGroupEditorDialog> {
           child: Text(_editing ? '保存' : '创建'),
         ),
       ],
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * .76,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _FieldLabel(label: '项目组名称'),
-              const SizedBox(height: AppMetrics.unit),
-              ShadInput(
-                key: const ValueKey<String>('project-group-name-input'),
-                controller: _nameController,
-                autofocus: !_editing,
-                placeholder: const Text('例如：工作'),
-              ),
-              const SizedBox(height: AppMetrics.unit * 3),
-              const _FieldLabel(label: '项目组颜色'),
-              const SizedBox(height: AppMetrics.unit),
-              _PalettePicker(
-                value: _colorKey,
-                onChanged: (value) => setState(() => _colorKey = value),
-              ),
-              const SizedBox(height: AppMetrics.unit * 3),
-              ProjectIconPicker(
-                value: _iconKey,
-                onChanged: (value) => setState(() => _iconKey = value),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: AppMetrics.unit * 2),
-                Text(
-                  _error!,
-                  key: const ValueKey<String>('project-group-editor-error'),
-                  style: TextStyle(color: colors.focus, fontSize: 11),
-                ),
-              ],
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _FieldLabel(label: '项目组名称'),
+          const SizedBox(height: AppMetrics.unit),
+          ShadInput(
+            key: const ValueKey<String>('project-group-name-input'),
+            controller: _nameController,
+            autofocus: !_editing,
+            placeholder: const Text('例如：工作'),
           ),
-        ),
+          const SizedBox(height: AppMetrics.unit * 2.5),
+          const _FieldLabel(label: '项目组颜色'),
+          const SizedBox(height: AppMetrics.unit),
+          _PalettePicker(
+            value: _colorKey,
+            onChanged: (value) => setState(() => _colorKey = value),
+          ),
+          const SizedBox(height: AppMetrics.unit * 2.5),
+          ProjectIconPicker(
+            value: _iconKey,
+            onChanged: (value) => setState(() => _iconKey = value),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: AppMetrics.unit * 2),
+            _EditorError(
+              key: const ValueKey<String>('project-group-editor-error'),
+              message: _error!,
+              colors: colors,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -279,6 +291,75 @@ class _ProjectGroupEditorDialogState extends State<ProjectGroupEditorDialog> {
   }
 }
 
+double _editorMaxHeight(BuildContext context) {
+  final viewportHeight = MediaQuery.sizeOf(context).height;
+  return (viewportHeight * .84).clamp(320.0, 720.0).toDouble();
+}
+
+class _EditorDialogHeader extends StatelessWidget {
+  const _EditorDialogHeader({
+    required this.title,
+    required this.description,
+    required this.iconKey,
+    required this.colorKey,
+  });
+
+  final String title;
+  final String description;
+  final String iconKey;
+  final String colorKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final palette = ProjectPalette.resolve(colorKey);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: palette.softBackground,
+            borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+            border: Border.all(color: palette.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppMetrics.unit * 2.5),
+            child: ProjectIcon(
+              iconKey: iconKey,
+              color: palette.accent,
+              size: 23,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppMetrics.unit * 2.5),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: AppMetrics.unit * .5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.text,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppMetrics.unit),
+                Text(
+                  description,
+                  style: TextStyle(color: colors.textMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel({required this.label});
 
@@ -290,9 +371,45 @@ class _FieldLabel extends StatelessWidget {
     return Text(
       label,
       style: TextStyle(
-        color: colors.textMuted,
-        fontSize: 11,
+        color: colors.text,
+        fontSize: 12,
         fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+class _EditorError extends StatelessWidget {
+  const _EditorError({super.key, required this.message, required this.colors});
+
+  final String message;
+  final AppColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.focusSoft,
+        borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+        border: Border.all(color: colors.focus.withValues(alpha: .24)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppMetrics.unit * 2,
+          vertical: AppMetrics.unit * 1.5,
+        ),
+        child: Row(
+          children: [
+            Icon(AppIcons.info, size: 14, color: colors.focus),
+            const SizedBox(width: AppMetrics.unit * 1.5),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: colors.text, fontSize: 11),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -306,7 +423,9 @@ class _PalettePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Wrap(
+      alignment: WrapAlignment.start,
       spacing: AppMetrics.unit * 1.5,
       runSpacing: AppMetrics.unit * 1.5,
       children: [
@@ -315,22 +434,39 @@ class _PalettePicker extends StatelessWidget {
             button: true,
             selected: palette.key == value,
             label: palette.key,
-            child: ShadButton.ghost(
-              key: ValueKey<String>('project-color-option-${palette.key}'),
-              onPressed: () => onChanged(palette.key),
-              height: 28,
-              width: 28,
-              padding: EdgeInsets.zero,
-              backgroundColor: palette.accent,
-              hoverBackgroundColor: palette.accent.withValues(alpha: .82),
-              decoration: const ShadDecoration(shape: BoxShape.circle),
-              child: palette.key == value
-                  ? const Icon(
-                      AppIcons.check,
-                      color: Color(0xFFFFFFFF),
-                      size: 14,
-                    )
-                  : const SizedBox.shrink(),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: palette.key == value
+                    ? palette.softBackground
+                    : colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: palette.key == value
+                      ? palette.accent
+                      : colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: ShadButton.ghost(
+                  key: ValueKey<String>('project-color-option-${palette.key}'),
+                  onPressed: () => onChanged(palette.key),
+                  height: 28,
+                  width: 28,
+                  padding: EdgeInsets.zero,
+                  backgroundColor: palette.accent,
+                  hoverBackgroundColor: palette.accent.withValues(alpha: .82),
+                  decoration: const ShadDecoration(shape: BoxShape.circle),
+                  child: palette.key == value
+                      ? Icon(
+                          AppIcons.check,
+                          color: palette.foreground,
+                          size: 14,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
             ),
           ),
       ],
@@ -370,55 +506,62 @@ class _GroupSelector extends StatelessWidget {
           key: const ValueKey<String>('project-group-selector'),
           onPressed: onToggle,
           height: 36,
+          width: double.infinity,
+          expands: true,
+          mainAxisAlignment: MainAxisAlignment.start,
           padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
-          child: Row(
-            children: [
-              ProjectIcon(
-                iconKey: group?.iconKey ?? 'folder',
-                color: group == null
-                    ? colors.textMuted
-                    : ProjectPalette.resolve(group.colorKey).accent,
-                size: 15,
-              ),
-              const SizedBox(width: AppMetrics.unit * 1.5),
-              Text(
-                group?.name ?? '未分组',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: colors.text, fontSize: 12),
-              ),
-              Icon(
-                expanded ? AppIcons.chevronDown : AppIcons.chevronRight,
-                size: 14,
-                color: colors.textMuted,
-              ),
-            ],
+          leading: ProjectIcon(
+            iconKey: group?.iconKey ?? 'folder',
+            color: group == null
+                ? colors.textMuted
+                : ProjectPalette.resolve(group.colorKey).accent,
+            size: 15,
+          ),
+          trailing: Icon(
+            expanded ? AppIcons.chevronDown : AppIcons.chevronRight,
+            size: 14,
+            color: colors.textMuted,
+          ),
+          child: Text(
+            group?.name ?? '未分组',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: colors.text, fontSize: 12),
           ),
         ),
         if (expanded)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.surfaceSubtle,
-              borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-            ),
-            child: Column(
-              children: [
-                _GroupOption(
-                  key: const ValueKey<String>('project-group-option-none'),
-                  label: '未分组',
-                  selected: value == null,
-                  onPressed: () => onChanged(null),
+          Padding(
+            padding: const EdgeInsets.only(top: AppMetrics.unit),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surfaceSubtle,
+                borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+                border: Border.all(color: colors.border),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit),
+                child: Column(
+                  children: [
+                    _GroupOption(
+                      key: const ValueKey<String>('project-group-option-none'),
+                      label: '未分组',
+                      selected: value == null,
+                      onPressed: () => onChanged(null),
+                    ),
+                    for (final item in controller.groups.where(
+                      (item) => !item.archived,
+                    ))
+                      _GroupOption(
+                        key: ValueKey<String>(
+                          'project-group-option-${item.id}',
+                        ),
+                        label: item.name,
+                        selected: item.id == value,
+                        onPressed: () => onChanged(item.id),
+                      ),
+                  ],
                 ),
-                for (final item in controller.groups.where(
-                  (item) => !item.archived,
-                ))
-                  _GroupOption(
-                    key: ValueKey<String>('project-group-option-${item.id}'),
-                    label: item.name,
-                    selected: item.id == value,
-                    onPressed: () => onChanged(item.id),
-                  ),
-              ],
+              ),
             ),
           ),
       ],
@@ -443,18 +586,26 @@ class _GroupOption extends StatelessWidget {
     final colors = AppColors.of(context);
     return ShadButton.ghost(
       onPressed: onPressed,
+      width: double.infinity,
       height: 32,
+      expands: true,
+      mainAxisAlignment: MainAxisAlignment.start,
       padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
       foregroundColor: selected ? colors.focus : colors.text,
       backgroundColor: selected ? colors.focusSoft : null,
       hoverBackgroundColor: colors.focusSoft,
       child: Row(
         children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: selected ? colors.focus : colors.text,
+                fontSize: 12,
+              ),
+            ),
           ),
           if (selected) const Icon(AppIcons.check, size: 14),
         ],

@@ -634,13 +634,48 @@ class WindowController extends ChangeNotifier {
   Future<void> _exitNow() async {
     if (_exiting) return;
     _exiting = true;
-    notifyListeners();
-    await _flushGeometryPersistence();
-    await _flushHook();
-    await _hotkey.unregister();
-    await _tray.dispose();
-    await _desktop.destroy();
-    notifyListeners();
+    if (!_disposed) notifyListeners();
+
+    // Shutdown is a best-effort sequence.  A persistence or plugin failure
+    // must not strand the tray icon (or the native window) in the process.
+    // Keep the first error so callers still get an actionable failure after
+    // every cleanup boundary has had a chance to run.
+    Object? firstError;
+    StackTrace? firstStack;
+    void captureError(Object error, StackTrace stackTrace) {
+      firstError ??= error;
+      firstStack ??= stackTrace;
+    }
+
+    try {
+      await _flushGeometryPersistence();
+    } catch (error, stackTrace) {
+      captureError(error, stackTrace);
+    }
+    try {
+      await _flushHook();
+    } catch (error, stackTrace) {
+      captureError(error, stackTrace);
+    }
+    try {
+      await _hotkey.unregister();
+    } catch (error, stackTrace) {
+      captureError(error, stackTrace);
+    }
+    try {
+      await _tray.dispose();
+    } catch (error, stackTrace) {
+      captureError(error, stackTrace);
+    }
+    try {
+      await _desktop.destroy();
+    } catch (error, stackTrace) {
+      captureError(error, stackTrace);
+    }
+    if (!_disposed) notifyListeners();
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError!, firstStack!);
+    }
   }
 
   Future<void> _handleCloseRequest() => close();

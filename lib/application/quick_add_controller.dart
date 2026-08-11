@@ -115,6 +115,7 @@ class QuickAddController extends ChangeNotifier {
   String? _selectedProjectId;
   bool _hasExplicitSelection = false;
   QuickAddControllerBinding? _activeBinding;
+  bool _disposed = false;
 
   String get draft => _draft;
   String? get error => _error;
@@ -133,6 +134,7 @@ class QuickAddController extends ChangeNotifier {
     required String? lastProjectId,
     QuickAddLastProjectWriter? onChanged,
   }) {
+    if (_disposed) return;
     _lastProjectId = lastProjectId;
     _onLastProjectChanged = onChanged;
     if (!_hasExplicitSelection) notifyListeners();
@@ -141,6 +143,7 @@ class QuickAddController extends ChangeNotifier {
   /// Lets the app bind its authoritative workspace write even when a test or
   /// embedding supplied this controller through the legacy constructor.
   void bindTargetSubmit(QuickAddTargetSubmitHandler handler) {
+    if (_disposed) return;
     _onSubmitWithTarget = handler;
   }
 
@@ -152,6 +155,7 @@ class QuickAddController extends ChangeNotifier {
     required String? lastProjectId,
     QuickAddLastProjectWriter? onLastProjectChanged,
   }) {
+    if (_disposed) return QuickAddControllerBinding(() {});
     _activeBinding?.dispose();
     final previousSubmit = _onSubmitWithTarget;
     final previousPersist = _onLastProjectChanged;
@@ -184,6 +188,7 @@ class QuickAddController extends ChangeNotifier {
   }
 
   void setLastProjectId(String? value) {
+    if (_disposed) return;
     if (_lastProjectId == value) return;
     _lastProjectId = value;
     if (!_hasExplicitSelection) notifyListeners();
@@ -195,6 +200,7 @@ class QuickAddController extends ChangeNotifier {
   /// snapshot.  The inbox is always inserted first and duplicate project IDs
   /// are removed deterministically.
   void setAvailableTargets(Iterable<QuickAddTarget> values) {
+    if (_disposed) return;
     final next = _normalizeTargets(values);
     if (_listEquals(_availableTargets, next)) return;
     _availableTargets = next;
@@ -212,6 +218,7 @@ class QuickAddController extends ChangeNotifier {
   /// Selects a project by stable ID.  Passing `null` selects the inbox.
   /// Unknown IDs are treated as inbox and are never sent to the workspace.
   void setTarget(String? projectId) {
+    if (_disposed) return;
     final normalized = projectId == null
         ? null
         : _targetFor(projectId)?.projectId;
@@ -228,6 +235,7 @@ class QuickAddController extends ChangeNotifier {
   void selectTargetEntry(QuickAddTarget target) => setTarget(target.projectId);
 
   void setDraft(String value) {
+    if (_disposed) return;
     if (_draft == value) return;
     _draft = value;
     if (_error != null && value.trim().isNotEmpty) _error = null;
@@ -235,6 +243,7 @@ class QuickAddController extends ChangeNotifier {
   }
 
   Future<bool> submit([String? value]) async {
+    if (_disposed) return false;
     if (_submitting) return false;
     final title = (value ?? _draft).trim();
     if (title.isEmpty) {
@@ -297,12 +306,39 @@ class QuickAddController extends ChangeNotifier {
   }
 
   Future<void> cancel() async {
+    if (_disposed) return;
     _error = null;
     _draft = '';
     _hasExplicitSelection = false;
     _selectedProjectId = null;
     notifyListeners();
-    await windowController.cancelQuickAdd();
+    try {
+      await windowController.cancelQuickAdd();
+    } catch (error) {
+      // Escape/cancel is frequently dispatched through an unawaited keyboard
+      // callback. Keep native restore failures inside the controller so they
+      // cannot become an uncaught zone error or leave a dead window process.
+      _error = 'Quick Add cancel failed: $error';
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _activeBinding?.dispose();
+    _activeBinding = null;
+    super.dispose();
+  }
+
+  /// A submission may still be awaiting persistence while the Quick Add view
+  /// is removed during a window-mode transition. Ignore late notifications
+  /// instead of calling ChangeNotifier after disposal and taking down the
+  /// Flutter isolate.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
   }
 
   QuickAddTarget _resolveSelectedTarget() {

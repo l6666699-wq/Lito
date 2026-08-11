@@ -148,6 +148,10 @@ void main() {
 
     expect(await quickAdd.submit(), isTrue);
     expect(window.mode, WindowMode.full);
+    await window.openQuickAdd();
+    expect(window.mode, WindowMode.quickAdd);
+    await window.cancelQuickAdd();
+    expect(window.mode, WindowMode.full);
     expect(workspace.revision, initialRevision + 1);
     final restarted = WorkspaceController(repository: repository);
     await restarted.initialize();

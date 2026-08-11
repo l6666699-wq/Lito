@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:litetodo/app/theme/project_palette.dart';
 import 'package:litetodo/application/workspace_controller.dart';
@@ -18,6 +20,42 @@ class _RecordingRepository implements AppDataRepository {
   Future<void> save(AppData snapshot) async {
     saveCalls += 1;
     saved = snapshot;
+  }
+}
+
+class _FailingSaveRepository implements AppDataRepository {
+  _FailingSaveRepository(this.result);
+
+  final AppDataLoadResult result;
+  bool failSaves = true;
+  AppData? saved;
+
+  @override
+  Future<AppDataLoadResult> load() async => result;
+
+  @override
+  Future<void> save(AppData snapshot) async {
+    if (failSaves) throw StateError('controlled todo save failure');
+    saved = snapshot;
+  }
+}
+
+class _BlockingRepository implements AppDataRepository {
+  _BlockingRepository(this.result);
+
+  final AppDataLoadResult result;
+  final List<AppData> saves = <AppData>[];
+  Completer<void>? nextSaveGate;
+
+  @override
+  Future<AppDataLoadResult> load() async => result;
+
+  @override
+  Future<void> save(AppData snapshot) async {
+    saves.add(snapshot);
+    final gate = nextSaveGate;
+    nextSaveGate = null;
+    if (gate != null) await gate.future;
   }
 }
 
@@ -112,6 +150,114 @@ void main() {
 
       expect(controller.appData, snapshot);
       expect(repository.saveCalls, 0);
+    },
+  );
+
+  test('empty persisted data can create and flush a root Todo', () async {
+    final repository = _RecordingRepository(
+      AppDataLoadResult(
+        data: AppData.empty(),
+        source: AppDataLoadSource.primary,
+      ),
+    );
+    final controller = WorkspaceController(repository: repository);
+    await controller.initialize();
+
+    await controller.addTodoAndFlush('first root');
+
+    expect(controller.todos, hasLength(1));
+    expect(controller.todos.single.projectId, isNull);
+    expect(repository.saved?.todos.single.title, 'first root');
+    expect(controller.hasUnsavedChanges, isFalse);
+  });
+
+  test('project scope creates a Todo owned by the selected project', () {
+    final controller = WorkspaceController();
+    controller.selectProject('project-focus');
+
+    final created = controller.createRootTodo('project root');
+
+    expect(created.projectId, 'project-focus');
+    expect(controller.todos, contains(created));
+  });
+
+  test(
+    'failed Todo persistence rolls back without taking down the workspace',
+    () async {
+      final repository = _FailingSaveRepository(
+        AppDataLoadResult(
+          data: AppData.empty(),
+          source: AppDataLoadSource.primary,
+        ),
+      );
+      final controller = WorkspaceController(repository: repository);
+      await controller.initialize();
+
+      await expectLater(
+        controller.addTodoAndFlush('will fail'),
+        throwsA(isA<StateError>()),
+      );
+      expect(controller.todos, isEmpty);
+      expect(controller.hasPersistenceError, isTrue);
+
+      repository.failSaves = false;
+      await controller.addTodoAndFlush('retry succeeds');
+      expect(controller.todos.map((todo) => todo.title), <String>[
+        'retry succeeds',
+      ]);
+      expect(controller.hasPersistenceError, isFalse);
+    },
+  );
+
+  test('overlapping flushes persist the newest Todo revision', () async {
+    final repository = _BlockingRepository(
+      AppDataLoadResult(
+        data: AppData.empty(),
+        source: AppDataLoadSource.primary,
+      ),
+    );
+    final controller = WorkspaceController(repository: repository);
+    await controller.initialize();
+    final gate = Completer<void>();
+    repository.nextSaveGate = gate;
+
+    controller.createRootTodo('first');
+    final firstFlush = controller.flushNow();
+    await Future<void>.delayed(Duration.zero);
+    controller.createRootTodo('second');
+    final secondFlush = controller.flushNow();
+
+    gate.complete();
+    await Future.wait(<Future<void>>[firstFlush, secondFlush]);
+
+    expect(repository.saves, hasLength(2));
+    expect(repository.saves.last.revision, controller.revision);
+    expect(repository.saves.last.todos.map((todo) => todo.title), <String>[
+      'first',
+      'second',
+    ]);
+    expect(controller.hasUnsavedChanges, isFalse);
+  });
+
+  test(
+    'disposing during a pending flush does not notify a dead workspace',
+    () async {
+      final repository = _BlockingRepository(
+        AppDataLoadResult(
+          data: AppData.empty(),
+          source: AppDataLoadSource.primary,
+        ),
+      );
+      final controller = WorkspaceController(repository: repository);
+      await controller.initialize();
+      final gate = Completer<void>();
+      repository.nextSaveGate = gate;
+      controller.createRootTodo('dispose while saving');
+      final flush = controller.flushNow();
+      controller.dispose();
+      gate.complete();
+
+      await expectLater(flush, completes);
     },
   );
 

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../app_constants.dart';
+import 'app_colors.dart';
 import 'project_palette.dart';
 
 class AppTheme {
@@ -47,12 +48,29 @@ class AppTheme {
   ) {
     final accent = ProjectPalette.resolve(accentColorKey).accent;
     final base = ShadColorScheme.fromName('blue', brightness: brightness);
+    final appColors = brightness == Brightness.dark
+        ? AppColors.darkScheme
+        : AppColors.lightScheme;
     final colorScheme = base.copyWith(
+      background: appColors.canvas,
+      foreground: appColors.text,
+      card: appColors.surface,
+      cardForeground: appColors.text,
+      popover: appColors.surface,
+      popoverForeground: appColors.text,
       primary: accent,
       ring: accent,
       selection: accent.withValues(
         alpha: brightness == Brightness.dark ? .35 : .25,
       ),
+      secondary: appColors.surfaceSubtle,
+      secondaryForeground: appColors.text,
+      muted: appColors.surfaceSubtle,
+      mutedForeground: appColors.textMuted,
+      accent: appColors.surfaceSubtle,
+      accentForeground: appColors.text,
+      border: appColors.border,
+      input: appColors.border,
       primaryForeground: brightness == Brightness.dark
           ? const Color(0xFF12141A)
           : const Color(0xFFFFFFFF),

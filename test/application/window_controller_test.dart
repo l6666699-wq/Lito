@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -181,6 +182,49 @@ void main() {
       expect(controller.state, WindowLifecycleState.exiting);
     },
   );
+
+  test('exit cleans up native resources when the flush hook fails', () async {
+    final desktop = FakeDesktopWindowService();
+    final tray = FakeSystemTrayService();
+    final hotkey = FakeGlobalHotkeyService();
+    final controller = WindowController(
+      desktopService: desktop,
+      trayService: tray,
+      hotkeyService: hotkey,
+      flushHook: () async => throw StateError('flush failed'),
+    );
+    await controller.initialize();
+
+    await expectLater(controller.exit(), throwsStateError);
+
+    expect(hotkey.unregisterCount, 1);
+    expect(tray.disposed, isTrue);
+    expect(desktop.calls.last, 'destroy');
+    expect(controller.state, WindowLifecycleState.exiting);
+  });
+
+  test('exit cleanup survives controller disposal while flushing', () async {
+    final gate = Completer<void>();
+    final desktop = FakeDesktopWindowService();
+    final tray = FakeSystemTrayService();
+    final hotkey = FakeGlobalHotkeyService();
+    final controller = WindowController(
+      desktopService: desktop,
+      trayService: tray,
+      hotkeyService: hotkey,
+      flushHook: () => gate.future,
+    );
+    await controller.initialize();
+
+    final exiting = controller.exit();
+    controller.dispose();
+    gate.complete();
+
+    await expectLater(exiting, completes);
+    expect(hotkey.unregisterCount, 1);
+    expect(tray.disposed, isTrue);
+    expect(desktop.calls.last, 'destroy');
+  });
 
   test(
     'hotkey registration failures are observable without blocking startup',

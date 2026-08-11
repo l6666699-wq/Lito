@@ -5,9 +5,15 @@ import 'package:flutter/widgets.dart';
 import 'package:litetodo/app/litetodo_app.dart';
 import 'package:litetodo/application/app_navigation_controller.dart';
 import 'package:litetodo/application/quick_add_controller.dart';
+import 'package:litetodo/application/settings_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
+import 'package:litetodo/app/theme/app_colors.dart';
+import 'package:litetodo/app/theme/app_metrics.dart';
+import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
+import 'package:litetodo/icons/app_icons.dart';
+import 'package:litetodo/presentation/settings/settings_scope.dart';
 
 void main() {
   testWidgets('full shell routes and preserves page across Quick Add', (
@@ -104,6 +110,125 @@ void main() {
       await tester.pumpWidget(LiteTodoApp(controller: WorkspaceController()));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey<String>('shell-statistics-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('shell-settings-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('shell-theme-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('shell-window-minimize-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('shell-window-maximize-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('shell-window-close-button')),
+        findsOneWidget,
+      );
+      final topbarRect = tester.getRect(
+        find.byKey(const ValueKey<String>('shell-topbar')),
+      );
+      const controlKeys = <String>[
+        'shell-statistics-button',
+        'shell-settings-button',
+        'shell-theme-button',
+        'shell-window-minimize-button',
+        'shell-window-maximize-button',
+        'shell-window-close-button',
+      ];
+      final controlRects = <String, Rect>{
+        for (final key in controlKeys)
+          key: tester.getRect(find.byKey(ValueKey<String>(key))),
+      };
+      for (final rect in controlRects.values) {
+        expect(rect.left, greaterThanOrEqualTo(topbarRect.left));
+        expect(rect.right, lessThanOrEqualTo(topbarRect.right));
+      }
+      expect(
+        controlRects['shell-statistics-button']!.left,
+        lessThan(controlRects['shell-settings-button']!.left),
+      );
+      expect(
+        controlRects['shell-settings-button']!.left,
+        lessThan(controlRects['shell-theme-button']!.left),
+      );
+      if (size.width == 1672) {
+        expect(
+          controlRects['shell-window-close-button']!.right,
+          closeTo(topbarRect.right - AppMetrics.unit * 3, 1),
+        );
+      }
+      expect(find.byIcon(AppIcons.clock), findsNothing);
+      expect(find.byIcon(AppIcons.notification), findsNothing);
     });
   }
+
+  testWidgets('theme snapshot paints dark canvas in the next frame', (
+    tester,
+  ) async {
+    final settings = SettingsController(
+      repository: InMemorySettingsRepository(),
+    );
+    await settings.initialize();
+    addTearDown(settings.dispose);
+    final workspace = WorkspaceController();
+    addTearDown(workspace.dispose);
+
+    await tester.pumpWidget(
+      LiteTodoApp(settingsController: settings, controller: workspace),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<ColoredBox>(
+            find.byKey(const ValueKey<String>('app-shell-canvas')),
+          )
+          .color,
+      AppColors.lightScheme.canvas,
+    );
+    expect(
+      tester
+          .widget<DecoratedBox>(
+            find.byKey(const ValueKey<String>('shell-topbar')),
+          )
+          .decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.color,
+        'color',
+        AppColors.lightScheme.surface,
+      ),
+    );
+
+    final update = settings.setThemeMode(AppThemeMode.dark);
+    await tester.pump();
+    expect(
+      tester
+          .widget<ColoredBox>(
+            find.byKey(const ValueKey<String>('app-shell-canvas')),
+          )
+          .color,
+      AppColors.darkScheme.canvas,
+    );
+    expect(
+      (tester
+                  .widget<DecoratedBox>(
+                    find.byKey(const ValueKey<String>('shell-topbar')),
+                  )
+                  .decoration
+              as BoxDecoration)
+          .color,
+      AppColors.darkScheme.surface,
+    );
+    expect(await update, isTrue);
+  });
 }

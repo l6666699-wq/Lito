@@ -1,6 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
+import 'package:litetodo/app/theme/app_colors.dart';
+import 'package:litetodo/app/theme/app_theme.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/presentation/statistics/statistics_page.dart';
 
@@ -51,6 +54,32 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('当前版本未记录专注时长'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('statistics follows dark surface and chart tokens', (
+    tester,
+  ) async {
+    final controller = _controller();
+    addTearDown(controller.dispose);
+    final completed = controller.createRootTodo('暗色节奏测试任务');
+    controller.toggleTodoCompleted(completed.id);
+    await tester.pumpWidget(
+      ShadApp(theme: AppTheme.darkFor(), home: _host(controller)),
+    );
+    await tester.pumpAndSettle();
+
+    final surface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('statistics-surface')),
+    );
+    expect((surface.decoration as BoxDecoration).color, AppColors.darkSurface);
+    final heatmapCell = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('statistics-heatmap-cell-1-0')),
+    );
+    expect(
+      (heatmapCell.decoration as BoxDecoration).color,
+      AppColors.darkSurfaceSubtle,
+    );
     expect(tester.takeException(), isNull);
   });
 

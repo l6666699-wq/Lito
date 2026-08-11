@@ -38,6 +38,7 @@ class SettingsController extends ChangeNotifier {
   final GlobalHotkeyService? _globalHotkeyService;
   final HotkeyPressedHandler _onGlobalHotkeyPressed;
   Future<void> _operationTail = Future<void>.value();
+  int _operationCount = 0;
   AppSettings _settings = AppSettings();
   bool _initialized = false;
   bool _disposed = false;
@@ -292,6 +293,17 @@ class SettingsController extends ChangeNotifier {
         return _fail(error.toString());
       }
 
+      // Theme-affecting settings are rendered from this controller's
+      // snapshot. Publish them before the asynchronous repository write so a
+      // toggle is visible in the very next frame. Persistence still remains
+      // transactional: a failed write restores the previous snapshot below.
+      final themeChanged = _themeChanged(previous, candidate);
+      if (themeChanged) {
+        _settings = candidate;
+        _lastPersistenceError = null;
+        notifyListeners();
+      }
+
       var platformChanged = false;
       try {
         platformChanged = await _applyPlatformChange(previous, candidate);
@@ -300,14 +312,29 @@ class SettingsController extends ChangeNotifier {
         if (platformChanged) {
           await _restorePlatformState(previous);
         }
+        if (themeChanged) {
+          _settings = previous;
+          _lastPersistenceError = _stableErrorMessage(error);
+          notifyListeners();
+          return false;
+        }
         return _fail(_stableErrorMessage(error));
       }
 
-      _settings = candidate;
-      _lastPersistenceError = null;
-      notifyListeners();
+      if (!themeChanged) {
+        _settings = candidate;
+        _lastPersistenceError = null;
+        notifyListeners();
+      }
       return true;
     });
+  }
+
+  bool _themeChanged(AppSettings previous, AppSettings candidate) {
+    return previous.themeMode != candidate.themeMode ||
+        previous.accentColorKey != candidate.accentColorKey ||
+        previous.fontFamilyKey != candidate.fontFamilyKey ||
+        previous.fontScale != candidate.fontScale;
   }
 
   Future<bool> _applyPlatformChange(
@@ -455,8 +482,55 @@ class SettingsController extends ChangeNotifier {
     if (_disposed) {
       return Future<T>.error(StateError('SettingsController is disposed'));
     }
+    // Start an idle operation directly so its synchronous prefix (notably a
+    // theme preview notification) runs before the next frame.  Once an
+    // operation is in flight, retain the serialized tail used by persistence
+    // and platform updates.
+    if (_operationCount == 0) {
+      _operationCount = 1;
+      final gate = Completer<void>();
+      final barrier = gate.future;
+      _operationTail = barrier;
+      late Future<T> next;
+      try {
+        next = operation();
+      } catch (error, stackTrace) {
+        gate.complete();
+        _operationCount--;
+        if (identical(_operationTail, barrier)) {
+          _operationTail = Future<void>.value();
+        }
+        return Future<T>.error(error, stackTrace);
+      }
+      final completion = next.then<void>(
+        (_) {
+          if (!gate.isCompleted) gate.complete();
+          _operationCount--;
+        },
+        onError: (_, _) {
+          if (!gate.isCompleted) gate.complete();
+          _operationCount--;
+        },
+      );
+      // A listener may enqueue another operation from the synchronous prefix
+      // above.  In that case it already replaced the tail with a future
+      // chained to the gate, so do not discard that queued work.
+      if (identical(_operationTail, barrier)) {
+        _operationTail = completion;
+      }
+      return next;
+    }
+
+    _operationCount++;
     final next = _operationTail.then<T>((_) => operation());
-    _operationTail = next.then<void>((_) {}, onError: (_, _) {});
+    _operationTail = next.then<void>(
+      (_) {
+        _operationCount--;
+      },
+      onError: (_, _) {
+        _operationCount--;
+      },
+    );
     return next;
   }
 

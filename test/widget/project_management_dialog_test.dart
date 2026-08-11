@@ -4,8 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:litetodo/app/litetodo_app.dart';
+import 'package:litetodo/application/settings_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
+import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/presentation/projects/project_management.dart';
+import 'package:litetodo/presentation/settings/settings_scope.dart';
 
 void main() {
   Future<void> pumpApp(
@@ -43,6 +46,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.groups.any((group) => group.name == '委托测试'), isTrue);
+  });
+
+  testWidgets('project editor keeps its hierarchy in dark theme', (
+    tester,
+  ) async {
+    final controller = WorkspaceController();
+    final settings = SettingsController(
+      repository: InMemorySettingsRepository(
+        initial: AppSettings(themeMode: AppThemeMode.dark),
+      ),
+    );
+    await settings.initialize();
+    addTearDown(() {
+      settings.dispose();
+      controller.dispose();
+    });
+    await tester.pumpWidget(
+      LiteTodoApp(
+        key: ValueKey<WorkspaceController>(controller),
+        controller: controller,
+        settingsController: settings,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final project = controller.projects.first;
+    await tester.tap(
+      find.byKey(ValueKey<String>('project-more-${project.id}')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('project-action-edit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('project-editor-dialog')),
+      findsOneWidget,
+    );
+    expect(find.text('项目名称'), findsOneWidget);
+    expect(find.text('所属分组'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

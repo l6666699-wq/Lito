@@ -74,6 +74,7 @@ class WorkspaceController extends ChangeNotifier {
   String _searchQuery = '';
   bool _benchmarkMode = false;
   bool _initialized = false;
+  bool _disposed = false;
   bool _dirty = false;
   final WorkspaceHistory _history = WorkspaceHistory();
   AppData? _pendingHistoryBefore;
@@ -81,6 +82,8 @@ class WorkspaceController extends ChangeNotifier {
   Timer? _saveTimer;
   String? _recoveryWarning;
   Object? _lastPersistenceError;
+  Future<void>? _flushInFlight;
+  bool _flushAgain = false;
 
   TodoDataset get dataset => _dataset;
   int get datasetSize => _dataset.count;
@@ -278,20 +281,45 @@ class WorkspaceController extends ChangeNotifier {
   /// A v1 snapshot is decoded as v2 in memory and is written back only after
   /// the next business mutation (or an explicit flush).
   Future<void> initialize() async {
+    if (_disposed) return;
     if (_initialized) return;
     final repository = _repository;
     if (repository == null) {
       _initialized = true;
       return;
     }
-    final result = await repository.load();
+    late AppDataLoadResult result;
+    try {
+      result = await repository.load();
+    } catch (error) {
+      // A broken local file or an unavailable data directory must not prevent
+      // the shell from starting. Keep the in-memory workspace empty and make
+      // the failure observable through the existing settings data surface.
+      _applyData(AppData.empty());
+      _recoveryWarning =
+          'LiteTodo data could not be loaded; the workspace started empty.';
+      _lastPersistenceError = error;
+      _dirty = false;
+      _history.clear();
+      _pendingHistoryBefore = null;
+      _benchmarkMode = false;
+      _initialized = true;
+      notifyListeners();
+      return;
+    }
     _recoveryWarning = result.recoveryWarning;
     final initialEmpty = result.isInitial && result.recoveryWarning == null;
     _applyData(initialEmpty ? AppData.empty() : result.data);
     if (initialEmpty) {
       // Materialize the real empty snapshot so first-run backup/import flows
       // have a concrete data.json, while keeping the revision at zero.
-      await repository.save(_data);
+      try {
+        await repository.save(_data);
+      } catch (error) {
+        // The first-run write is best effort. The workspace remains usable and
+        // the next successful mutation can retry persistence.
+        _lastPersistenceError = error;
+      }
     }
     _dirty = false;
     _history.clear();
@@ -315,13 +343,51 @@ class WorkspaceController extends ChangeNotifier {
     DateTime? dueAt,
   }) async {
     final before = _capturePersistenceSnapshot();
+    int? mutationRevision;
     var mutationApplied = false;
     try {
       await addTodo(title, projectId: projectId, dueAt: dueAt);
       mutationApplied = true;
+      mutationRevision = _data.revision;
       await flushNow();
     } catch (error) {
-      if (mutationApplied && _data.revision == before.data.revision + 1) {
+      if (mutationApplied &&
+          mutationRevision != null &&
+          _data.revision == mutationRevision) {
+        _history.discardLatestAfterRevision(_data.revision);
+        _restorePersistenceSnapshot(before, error);
+      }
+      rethrow;
+    }
+  }
+
+  /// Creates a child Todo and persists the same transaction boundary used by
+  /// Quick Add/root composer submissions. A failed write restores the exact
+  /// pre-submit snapshot so retrying cannot duplicate the child.
+  Future<TodoItem> createChildTodoAndFlush(
+    String title, {
+    required String parentId,
+    DateTime? dueAt,
+  }) async {
+    final before = _capturePersistenceSnapshot();
+    TodoItem? created;
+    try {
+      final createdTodo = createChildTodo(
+        title,
+        parentId: parentId,
+        dueAt: dueAt,
+      );
+      created = createdTodo;
+      final mutationRevision = _data.revision;
+      await flushNow();
+      if (_data.revision != mutationRevision) {
+        // A concurrent mutation superseded this snapshot; leave the newer
+        // state authoritative rather than rolling it back.
+        return createdTodo;
+      }
+      return createdTodo;
+    } catch (error) {
+      if (created != null && _data.revision == before.data.revision + 1) {
         _history.discardLatestAfterRevision(_data.revision);
         _restorePersistenceSnapshot(before, error);
       }
@@ -930,21 +996,44 @@ class WorkspaceController extends ChangeNotifier {
     return trash;
   }
 
-  Future<void> flushNow() async {
-    _saveTimer?.cancel();
-    _saveTimer = null;
-    final repository = _repository;
-    if (repository == null || !_dirty || _benchmarkMode) return;
-    final snapshot = _data;
-    try {
-      await repository.save(snapshot);
-      if (_data.revision == snapshot.revision) _dirty = false;
-      _lastPersistenceError = null;
-      notifyListeners();
-    } catch (error) {
-      _lastPersistenceError = error;
-      notifyListeners();
-      rethrow;
+  Future<void> flushNow() {
+    final inFlight = _flushInFlight;
+    if (inFlight != null) {
+      // A caller explicitly requested a flush while an older snapshot is
+      // still being written. The in-flight operation will loop once more and
+      // persist the newest revision before completing.
+      _flushAgain = true;
+      return inFlight;
+    }
+    late Future<void> tracked;
+    tracked = _flushNowInternal().whenComplete(() {
+      if (identical(_flushInFlight, tracked)) _flushInFlight = null;
+    });
+    _flushInFlight = tracked;
+    return tracked;
+  }
+
+  Future<void> _flushNowInternal() async {
+    while (true) {
+      _flushAgain = false;
+      _saveTimer?.cancel();
+      _saveTimer = null;
+      final repository = _repository;
+      if (repository == null || !_dirty || _benchmarkMode) return;
+      final snapshot = _data;
+      try {
+        await repository.save(snapshot);
+        if (_data.revision == snapshot.revision) _dirty = false;
+        _lastPersistenceError = null;
+        notifyListeners();
+      } catch (error) {
+        _lastPersistenceError = error;
+        notifyListeners();
+        rethrow;
+      }
+      if (!_flushAgain && !(_dirty && _data.revision != snapshot.revision)) {
+        return;
+      }
     }
   }
 
@@ -1148,6 +1237,9 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   void _ensureWritable() {
+    if (_disposed) {
+      throw StateError('WorkspaceController is disposed');
+    }
     if (_benchmarkMode && _repository != null) {
       throw StateError('benchmark mode is read-only');
     }
@@ -1287,8 +1379,19 @@ class WorkspaceController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _saveTimer?.cancel();
     super.dispose();
+  }
+
+  /// ChangeNotifier throws when a late asynchronous callback notifies after
+  /// dispose. Persistence timers and UI listeners can legitimately finish on
+  /// a later event-loop turn, so make that boundary a no-op instead of taking
+  /// down the Flutter isolate.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
   }
 
   static List<ProjectGroup> _buildGroups() {

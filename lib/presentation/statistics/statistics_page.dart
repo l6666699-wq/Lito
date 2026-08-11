@@ -57,6 +57,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
           key: const ValueKey<String>('statistics-page'),
           padding: const EdgeInsets.fromLTRB(6, 0, 12, 14),
           child: DecoratedBox(
+            key: const ValueKey<String>('statistics-surface'),
             decoration: BoxDecoration(
               color: colors.surface,
               border: Border.all(color: colors.border),
@@ -443,6 +444,10 @@ class _KpiGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final totalAccent = colors.focus;
+    final completedAccent = ProjectPalette.resolve('green').accent;
+    final rateAccent = ProjectPalette.resolve('amber').accent;
+    final averageAccent = ProjectPalette.resolve('violet').accent;
     final dailyAverage = stats.daily.isEmpty
         ? 0.0
         : stats.completed / stats.daily.length;
@@ -451,8 +456,8 @@ class _KpiGrid extends StatelessWidget {
       _KpiCard(
         key: const ValueKey<String>('statistics-kpi-total'),
         icon: AppIcons.layers,
-        iconColor: const Color(0xFF5A79EF),
-        iconBackground: const Color(0x145A79EF),
+        iconColor: totalAccent,
+        iconBackground: totalAccent.withValues(alpha: .08),
         label: '总任务数',
         value: '${stats.total}',
         detail: _comparisonDetail(
@@ -464,8 +469,8 @@ class _KpiGrid extends StatelessWidget {
       _KpiCard(
         key: const ValueKey<String>('statistics-kpi-completed'),
         icon: AppIcons.completed,
-        iconColor: const Color(0xFF39B878),
-        iconBackground: const Color(0x1439B878),
+        iconColor: completedAccent,
+        iconBackground: completedAccent.withValues(alpha: .08),
         label: '已完成',
         value: '${stats.completed}',
         detail:
@@ -475,8 +480,8 @@ class _KpiGrid extends StatelessWidget {
       _KpiCard(
         key: const ValueKey<String>('statistics-kpi-rate'),
         icon: AppIcons.statistics,
-        iconColor: const Color(0xFFF39A16),
-        iconBackground: const Color(0x14F39A16),
+        iconColor: rateAccent,
+        iconBackground: rateAccent.withValues(alpha: .08),
         label: '完成率',
         value: stats.total == 0
             ? '暂无'
@@ -490,8 +495,8 @@ class _KpiGrid extends StatelessWidget {
       _KpiCard(
         key: const ValueKey<String>('statistics-kpi-average'),
         icon: AppIcons.recent,
-        iconColor: const Color(0xFF9168DC),
-        iconBackground: const Color(0x149168DC),
+        iconColor: averageAccent,
+        iconBackground: averageAccent.withValues(alpha: .08),
         label: '平均每日完成',
         value: stats.daily.isEmpty ? '暂无' : dailyAverage.toStringAsFixed(1),
         detail: stats.range == null
@@ -695,6 +700,8 @@ class _TrendPainter extends CustomPainter {
     final barWidth = math
         .min(27.0, plot.width / math.max(10, daily.length * 2))
         .toDouble();
+    final chartAccent = colors.focus;
+    final rateAccent = ProjectPalette.resolve('violet').accent;
     final points = <Offset>[];
     final ratePoints = <Offset>[];
     for (var index = 0; index < daily.length; index++) {
@@ -710,7 +717,7 @@ class _TrendPainter extends CustomPainter {
         x + barWidth / 2,
         plot.bottom,
       );
-      final barPaint = Paint()..color = const Color(0x336475F5);
+      final barPaint = Paint()..color = chartAccent.withValues(alpha: .2);
       canvas.drawRRect(
         RRect.fromRectAndRadius(barRect, const Radius.circular(4)),
         barPaint,
@@ -724,7 +731,7 @@ class _TrendPainter extends CustomPainter {
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(completedRect, const Radius.circular(4)),
-          Paint()..color = const Color(0xFF6475F5),
+          Paint()..color = chartAccent,
         );
       }
       final completedY = plot.bottom - plot.height * day.completed / maxValue;
@@ -743,36 +750,30 @@ class _TrendPainter extends CustomPainter {
           canvas,
           '${day.completed}',
           Offset(x - 5, completedY - 20),
-          const Color(0xFF5667F5),
+          chartAccent,
           10,
         );
       }
     }
     final linePaint = Paint()
-      ..color = const Color(0xFF5667F5)
+      ..color = chartAccent
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     _drawPolyline(canvas, points, linePaint);
     final ratePaint = Paint()
-      ..color = const Color(0xFF9A6BF0)
+      ..color = rateAccent
       ..strokeWidth = 1.6
       ..style = PaintingStyle.stroke;
     _drawDashedPolyline(canvas, ratePoints, ratePaint);
-    final dotPaint = Paint()..color = const Color(0xFF5667F5);
+    final dotPaint = Paint()..color = chartAccent;
     for (final point in points) {
       canvas.drawCircle(point, 3.5, Paint()..color = colors.surface);
       canvas.drawCircle(point, 2.2, dotPaint);
     }
     _drawLabel(canvas, '完成数', Offset(plot.left + 7, 0), colors.textMuted, 10);
-    _drawLabel(
-      canvas,
-      '完成率',
-      Offset(plot.right - 36, 0),
-      const Color(0xFF9A6BF0),
-      10,
-    );
+    _drawLabel(canvas, '完成率', Offset(plot.right - 36, 0), rateAccent, 10);
   }
 
   double _completionRate(DailyTodoStatistics day) {
@@ -1207,8 +1208,8 @@ class _RankingRow extends StatelessWidget {
             child: Center(
               child: Text(
                 '$rank',
-                style: const TextStyle(
-                  color: Color(0xFFFFFFFF),
+                style: TextStyle(
+                  color: colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1375,21 +1376,13 @@ Color _projectColor(
   List<Project> projects,
   int index,
 ) {
-  if (value.projectId == null) return const Color(0xFF6E77F4);
+  if (value.projectId == null) return AppColors.focus;
   for (final project in projects) {
     if (project.id == value.projectId) {
       return ProjectPalette.resolve(project.colorKey).accent;
     }
   }
-  const fallback = <Color>[
-    Color(0xFF6475F5),
-    Color(0xFF3DBD82),
-    Color(0xFFF39A16),
-    Color(0xFF9568E4),
-    Color(0xFF36AFC7),
-    Color(0xFFE9B22C),
-  ];
-  return fallback[index % fallback.length];
+  return ProjectPalette.values[index % ProjectPalette.values.length].accent;
 }
 
 String _displayProjectName(String name) => name == 'Inbox' ? '收集箱' : name;

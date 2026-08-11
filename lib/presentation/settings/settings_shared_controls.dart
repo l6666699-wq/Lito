@@ -110,12 +110,16 @@ class CategoryRail extends StatelessWidget {
     if (horizontal) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit),
         child: Row(children: children),
       );
     }
     final railContent = Padding(
       padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit * 2),
-      child: Column(children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
     );
     final sizedRail = height == null
         ? ConstrainedBox(
@@ -158,8 +162,8 @@ class CategoryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final content = Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppMetrics.unit * 3,
-        vertical: AppMetrics.unit * 2.5,
+        horizontal: AppMetrics.unit * 2.5,
+        vertical: AppMetrics.unit * 2,
       ),
       child: Row(
         mainAxisSize: horizontal ? MainAxisSize.min : MainAxisSize.max,
@@ -181,11 +185,13 @@ class CategoryItem extends StatelessWidget {
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                item.subtitle,
-                style: TextStyle(color: colors.textFaint, fontSize: 11),
-              ),
+              if (!horizontal) ...[
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  style: TextStyle(color: colors.textFaint, fontSize: 11),
+                ),
+              ],
             ],
           ),
         ],
@@ -198,15 +204,32 @@ class CategoryItem extends StatelessWidget {
       ),
       child: GestureDetector(
         onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: selected ? colors.focusSoft : colors.transparent,
-            borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
-            border: selected
-                ? Border.all(color: colors.focus.withValues(alpha: .16))
-                : null,
-          ),
-          child: content,
+        child: Stack(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected ? colors.focusSoft : colors.transparent,
+                borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+                border: selected
+                    ? Border.all(color: colors.focus.withValues(alpha: .16))
+                    : null,
+              ),
+              child: content,
+            ),
+            if (selected && !horizontal)
+              PositionedDirectional(
+                start: 0,
+                top: AppMetrics.unit,
+                bottom: AppMetrics.unit,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.focus,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: const SizedBox(width: 3),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -238,14 +261,28 @@ class SettingsCard extends StatelessWidget {
         border: Border.all(color: colors.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppMetrics.unit * 5),
+        padding: const EdgeInsets.all(AppMetrics.unit * 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Icon(icon, size: 18, color: colors.focus),
-                const SizedBox(width: AppMetrics.unit * 2),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.focusSoft,
+                    borderRadius: BorderRadius.circular(
+                      AppMetrics.normalRadius,
+                    ),
+                    border: Border.all(
+                      color: colors.focus.withValues(alpha: .16),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
+                    child: Icon(icon, size: 17, color: colors.focus),
+                  ),
+                ),
+                const SizedBox(width: AppMetrics.unit * 2.5),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +291,7 @@ class SettingsCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           color: colors.text,
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -270,10 +307,10 @@ class SettingsCard extends StatelessWidget {
             ),
             const SizedBox(height: AppMetrics.unit * 3),
             DecoratedBox(
-              decoration: BoxDecoration(color: colors.border),
+              decoration: BoxDecoration(color: colors.borderStrong),
               child: const SizedBox(height: 1),
             ),
-            const SizedBox(height: AppMetrics.unit),
+            const SizedBox(height: AppMetrics.unit * .5),
             ...children,
           ],
         ),
@@ -299,7 +336,7 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit * 2.5),
+      padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit * 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -466,29 +503,58 @@ class HotkeyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(
-        left: AppMetrics.unit * 4,
-        bottom: AppMetrics.unit * 2.5,
+        top: AppMetrics.unit,
+        bottom: AppMetrics.unit * 1.5,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              '当前快捷键',
-              style: TextStyle(color: colors.textMuted, fontSize: 11),
-            ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceSubtle,
+          borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+          border: Border.all(color: colors.border),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppMetrics.unit * 2.5,
+            vertical: AppMetrics.unit * 1.5,
           ),
-          SizedBox(
-            width: 190,
-            child: ShadInput(
-              key: ValueKey<String>(value),
-              controller: controller,
-              enabled: enabled,
-              onSubmitted: onSubmitted,
-              placeholder: const Text('Ctrl+Alt+Space'),
-              leading: const Icon(AppIcons.shortcut, size: 14),
-            ),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.focusSoft,
+                  borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
+                  child: Icon(AppIcons.shortcut, size: 15, color: colors.focus),
+                ),
+              ),
+              const SizedBox(width: AppMetrics.unit * 2),
+              Expanded(
+                child: Text(
+                  '当前快捷键',
+                  style: TextStyle(
+                    color: colors.text,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppMetrics.unit * 2),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 156, maxWidth: 220),
+                child: ShadInput(
+                  key: ValueKey<String>(value),
+                  controller: controller,
+                  enabled: enabled,
+                  onSubmitted: onSubmitted,
+                  placeholder: const Text('Ctrl+Alt+Space'),
+                  leading: const Icon(AppIcons.shortcut, size: 14),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -363,4 +363,52 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('settings surface keeps rail and hotkey readable in dark theme', (
+    tester,
+  ) async {
+    final settings = SettingsController(
+      repository: InMemorySettingsRepository(),
+    );
+    await settings.initialize();
+    final window = WindowController(desktopService: FakeDesktopWindowService());
+    await window.initialize();
+    final workspace = WorkspaceController();
+    final backup = BackupService(
+      directory: Directory(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}LiteTodo-settings-dark-test',
+      ),
+    );
+    final directory = FakeDataDirectoryService();
+    addTearDown(() {
+      settings.dispose();
+      window.dispose();
+      workspace.dispose();
+    });
+    await tester.binding.setSurfaceSize(const Size(860, 860));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ShadApp(
+        theme: AppTheme.darkFor(),
+        home: SettingsScope(
+          settingsController: settings,
+          backupService: backup,
+          workspaceController: workspace,
+          windowController: window,
+          dataDirectoryService: directory,
+          child: const SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const ValueKey<String>('settings-category-0')),
+      findsOneWidget,
+    );
+    expect(find.text('当前快捷键'), findsOneWidget);
+    expect(find.text('通用设置'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
 }

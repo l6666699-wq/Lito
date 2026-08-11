@@ -91,6 +91,7 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
   }
 
   Future<void> _initializeSettings() async {
+    if (_settingsController.isInitialized) return;
     try {
       await _settingsController.initialize();
       if (mounted) setState(() {});
@@ -179,7 +180,36 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
             fontFamilyKey: settings.fontFamilyKey,
           ),
           themeMode: themeMode,
+          // Keep ShadApp's built-in 200ms theme controller, but evaluate the
+          // end state from its first frame so a user toggle is immediate.
+          themeCurve: const Threshold(0.0),
+          // WidgetsApp keeps the initial home route alive while its inherited
+          // theme changes.  Apply the current snapshot at the app builder
+          // boundary so the mounted shell sees the new palette immediately,
+          // even when the route itself is not recreated.
+          builder: (context, child) {
+            final brightness = themeMode == ThemeMode.dark
+                ? Brightness.dark
+                : themeMode == ThemeMode.light
+                ? Brightness.light
+                : MediaQuery.maybePlatformBrightnessOf(context) ??
+                      Brightness.light;
+            final liveTheme = brightness == Brightness.dark
+                ? AppTheme.darkFor(
+                    accentColorKey: settings.accentColorKey,
+                    fontFamilyKey: settings.fontFamilyKey,
+                  )
+                : AppTheme.lightFor(
+                    accentColorKey: settings.accentColorKey,
+                    fontFamilyKey: settings.fontFamilyKey,
+                  );
+            return ShadTheme(
+              data: liveTheme,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: Builder(
+            key: ValueKey<AppThemeMode>(settings.themeMode),
             builder: (context) {
               final media = MediaQuery.maybeOf(context);
               final scaledMedia = media?.copyWith(

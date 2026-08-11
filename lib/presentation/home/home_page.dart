@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../app/app_text.dart';
@@ -31,11 +33,14 @@ class _HomePageState extends State<HomePage> {
   bool _composerVisible = false;
   String? _composerParentId;
   String? _composerError;
+  bool _composerSubmitting = false;
+  int _composerGeneration = 0;
 
   WorkspaceController get controller => widget.controller;
 
   void _openComposer([String? parentId]) {
     setState(() {
+      _composerGeneration += 1;
       _composerVisible = true;
       _composerParentId = parentId;
       _composerError = null;
@@ -46,32 +51,50 @@ class _HomePageState extends State<HomePage> {
   void _closeComposer() {
     if (!mounted) return;
     setState(() {
+      _composerGeneration += 1;
       _composerVisible = false;
       _composerParentId = null;
       _composerError = null;
+      _composerSubmitting = false;
     });
   }
 
   void _submitComposer(String title) {
+    if (_composerSubmitting) return;
+    final generation = _composerGeneration;
+    _composerSubmitting = true;
+    unawaited(_submitComposerAndFlush(title, generation));
+  }
+
+  Future<void> _submitComposerAndFlush(String title, int generation) async {
     try {
       if (_composerParentId == null) {
-        controller.createRootTodo(
+        await controller.addTodoAndFlush(
           title,
           projectId: controller.scope == WorkspaceScope.project
               ? controller.projectScopeId
               : null,
         );
       } else {
-        controller.createChildTodo(title, parentId: _composerParentId!);
+        await controller.createChildTodoAndFlush(
+          title,
+          parentId: _composerParentId!,
+        );
       }
-      _closeComposer();
+      if (mounted && generation == _composerGeneration) _closeComposer();
     } on Object catch (error) {
       // The controller validates empty titles and depth. Keep the editor open
       // so the user can correct the input without losing the draft.
       final message = error.toString().toLowerCase().contains('depth')
           ? '任务层级已达上限'
           : '无法创建任务，请检查输入';
-      if (mounted) setState(() => _composerError = message);
+      if (mounted && generation == _composerGeneration) {
+        setState(() => _composerError = message);
+      }
+    } finally {
+      if (mounted && generation == _composerGeneration) {
+        _composerSubmitting = false;
+      }
     }
   }
 

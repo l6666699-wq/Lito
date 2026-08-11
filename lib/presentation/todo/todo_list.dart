@@ -518,6 +518,7 @@ class _TodoComposerState extends State<_TodoComposer> {
   }
 
   void _submit() {
+    if (!mounted) return;
     final title = _controller.text.trim();
     if (title.isEmpty) return;
     widget.onSubmit?.call(title);

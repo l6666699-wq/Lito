@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:litetodo/application/quick_add_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
@@ -189,6 +191,25 @@ void main() {
       expect(controller.submittedCount, 1);
       expect(controller.draft, isEmpty);
       expect(controller.error, contains('窗口恢复失败'));
+    },
+  );
+
+  test(
+    'disposing QuickAdd during an awaited write does not notify late',
+    () async {
+      final window = await _openWindow();
+      addTearDown(window.dispose);
+      final write = Completer<void>();
+      final controller = QuickAddController(
+        windowController: window,
+        onSubmitWithTarget: (title, projectId) => write.future,
+      );
+      controller.setDraft('late completion');
+      final submission = controller.submit();
+      controller.dispose();
+      write.complete();
+
+      await expectLater(submission, completes);
     },
   );
 }
