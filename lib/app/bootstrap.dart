@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../application/data_transfer_controller.dart';
 import '../application/settings_controller.dart';
+import '../application/sticky_notes_controller.dart';
 import '../application/window_controller.dart';
 import '../application/workspace_controller.dart';
 import '../domain/models/app_settings.dart';
@@ -16,16 +17,29 @@ import '../infrastructure/platform/global_hotkey_service.dart';
 import '../infrastructure/platform/single_instance_service.dart';
 import '../infrastructure/platform/system_tray_service.dart';
 import '../infrastructure/platform/startup_service.dart';
+import '../infrastructure/platform/sticky_notes_window_service.dart';
 import '../infrastructure/persistence/json_app_data_repository.dart';
 import '../infrastructure/persistence/backup_service.dart';
 import '../infrastructure/persistence/data_transfer_service.dart';
 import '../infrastructure/persistence/json_settings_repository.dart';
 import 'litetodo_app.dart';
+import 'sticky_notes_app.dart';
 
 /// Windows-only startup boundary. A second process forwards its arguments
 /// through the named-pipe gate and exits before `runApp`.
 Future<void> bootstrap(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // The Windows runner launches each sticky note in its own Flutter engine.
+  // Branch before the primary single-instance/persistence graph so a note is
+  // a read-only projection and never registers a second tray or hotkey.
+  if (Platform.isWindows) {
+    final stickyArguments = StickyWindowLaunchArguments.parse(arguments);
+    if (stickyArguments != null) {
+      await bootstrapStickyNotesWindow(stickyArguments);
+      return;
+    }
+  }
 
   if (!Platform.isWindows) {
     runApp(const LiteTodoApp());
@@ -33,6 +47,9 @@ Future<void> bootstrap(List<String> arguments) async {
   }
 
   final desktop = WindowsDesktopWindowService();
+  final stickyWindowService = SafeStickyNotesWindowService(
+    WindowsStickyNotesWindowService(),
+  );
   final tray = WindowsSystemTrayService();
   final hotkey = WindowsGlobalHotkeyService();
   final repository = await createDefaultAppDataRepository();
@@ -192,6 +209,46 @@ Future<void> bootstrap(List<String> arguments) async {
       backupService: backupService,
       dataTransferController: dataTransferController,
       dataDirectoryService: dataDirectoryService,
+      stickyNotesWindowService: stickyWindowService,
+    ),
+  );
+}
+
+/// Starts a secondary engine's read-only sticky projection.
+Future<void> bootstrapStickyNotesWindow(
+  StickyWindowLaunchArguments arguments,
+) async {
+  final workspace = WorkspaceController();
+  final channel = StickyNotesSecondaryChannel();
+  try {
+    final snapshot = await channel.readSnapshot(arguments.key);
+    if (snapshot != null) applyStickySnapshot(workspace, snapshot);
+  } catch (_) {
+    // The first sync from the primary engine can arrive after this isolate's
+    // first frame. The channel listener below fills that small startup gap.
+  }
+  channel.listen(
+    onSnapshot: (snapshot) {
+      try {
+        applyStickySnapshot(workspace, snapshot);
+      } catch (_) {
+        // Ignore malformed/stale snapshots; the next primary revision will
+        // retry and the existing projection remains visible.
+      }
+    },
+  );
+  // The primary may sync while this engine is still wiring its first frame;
+  // read the manager's retained snapshot once more after the handler exists.
+  try {
+    final retrySnapshot = await channel.readSnapshot(arguments.key);
+    if (retrySnapshot != null) applyStickySnapshot(workspace, retrySnapshot);
+  } catch (_) {}
+  runApp(
+    StickyNotesSecondaryApp(
+      workspace: workspace,
+      windowService: channel,
+      projectId: arguments.projectId,
+      windowKey: arguments.key,
     ),
   );
 }

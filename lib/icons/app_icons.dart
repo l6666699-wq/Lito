@@ -64,4 +64,7 @@ abstract final class AppIcons {
   static const IconData pin = LucideIcons.pin;
   static const IconData compact = LucideIcons.panelTop;
   static const IconData quickAdd = LucideIcons.zap;
+  static const IconData stickyNotes = LucideIcons.notebookPen;
+  static const IconData back = LucideIcons.arrowLeft;
+  static const IconData fullscreen = LucideIcons.maximize2;
 }

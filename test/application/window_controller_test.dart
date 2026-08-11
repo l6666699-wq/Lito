@@ -52,6 +52,20 @@ void main() {
     },
   );
 
+  test('QuickAdd centers on the primary display visible bounds', () async {
+    final desktop = FakeDesktopWindowService()
+      ..visibleBounds = const Rect.fromLTWH(100, 200, 1920, 1080);
+    final controller = WindowController(desktopService: desktop);
+    await controller.initialize();
+
+    await controller.openQuickAdd();
+
+    expect(
+      desktop.geometry,
+      const WindowGeometry(position: Offset(850, 676), size: Size(420, 128)),
+    );
+  });
+
   test('hidden Compact -> QuickAdd -> Esc restores the hidden state', () async {
     final desktop = FakeDesktopWindowService();
     final controller = WindowController(desktopService: desktop);

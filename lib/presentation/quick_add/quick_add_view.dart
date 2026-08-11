@@ -83,7 +83,7 @@ class _QuickAddViewState extends State<QuickAddView> {
           return KeyEventResult.ignored;
         },
         child: Padding(
-          padding: const EdgeInsets.all(AppMetrics.compactPadding),
+          padding: const EdgeInsets.all(AppMetrics.compactPadding / 2),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colors.surface,
@@ -94,27 +94,21 @@ class _QuickAddViewState extends State<QuickAddView> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: ListenableBuilder(
                 listenable: widget.controller,
-                builder: (context, child) => LayoutBuilder(
-                  builder: (context, constraints) {
-                    final narrow = constraints.maxWidth < 360;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _TargetSelector(controller: widget.controller),
-                        const SizedBox(height: 6),
-                        _QuickAddEditor(
-                          controller: widget.controller,
-                          textController: _textController,
-                          focusNode: _focusNode,
-                          colors: colors,
-                          narrow: narrow,
-                          onSubmit: _submit,
-                          onCancel: widget.controller.cancel,
-                          onCancelFromKeyboard: _cancelFromKeyboard,
-                        ),
-                      ],
-                    );
-                  },
+                builder: (context, child) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TargetSelector(controller: widget.controller),
+                    const SizedBox(height: 6),
+                    _QuickAddEditor(
+                      controller: widget.controller,
+                      textController: _textController,
+                      focusNode: _focusNode,
+                      colors: colors,
+                      onSubmit: _submit,
+                      onCancel: widget.controller.cancel,
+                      onCancelFromKeyboard: _cancelFromKeyboard,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -211,7 +205,6 @@ class _QuickAddEditor extends StatelessWidget {
     required this.textController,
     required this.focusNode,
     required this.colors,
-    required this.narrow,
     required this.onSubmit,
     required this.onCancel,
     required this.onCancelFromKeyboard,
@@ -221,7 +214,6 @@ class _QuickAddEditor extends StatelessWidget {
   final TextEditingController textController;
   final FocusNode focusNode;
   final AppColorScheme colors;
-  final bool narrow;
   final Future<void> Function() onSubmit;
   final Future<void> Function() onCancel;
   final VoidCallback onCancelFromKeyboard;
@@ -269,6 +261,7 @@ class _QuickAddEditor extends StatelessWidget {
           foregroundColor: colors.focus,
           child: const Text('添加', style: TextStyle(fontSize: 12)),
         ),
+        const SizedBox(width: AppMetrics.unit),
         ShadButton.ghost(
           onPressed: onCancel,
           height: 30,
@@ -284,6 +277,7 @@ class _QuickAddEditor extends StatelessWidget {
             padding: const EdgeInsets.only(left: 8),
             child: Text(
               controller.error!,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: colors.textMuted, fontSize: 11),
             ),
@@ -303,12 +297,8 @@ class _QuickAddEditor extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         input,
-        const SizedBox(width: 8),
-        if (!narrow) controls,
-        if (!narrow && controller.error != null) Flexible(child: error),
       ],
     );
-    if (!narrow) return editorRow;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -317,8 +307,8 @@ class _QuickAddEditor extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            controls,
             if (controller.error != null) Flexible(child: error),
+            controls,
           ],
         ),
       ],

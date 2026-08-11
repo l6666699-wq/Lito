@@ -46,6 +46,42 @@ void main() {
     expect(controller.selectedProjectId, 'p1');
   });
 
+  testWidgets('Quick Add submit uses the currently selected target', (
+    tester,
+  ) async {
+    final window = WindowController(desktopService: FakeDesktopWindowService());
+    final submitted = <String?>[];
+    final controller = QuickAddController(
+      windowController: window,
+      availableTargets: <QuickAddTarget>[
+        const QuickAddTarget.inbox(),
+        _project('p1', 'Project One'),
+      ],
+      onSubmitWithTarget: (title, projectId) async {
+        submitted.add(projectId);
+      },
+    );
+    addTearDown(() {
+      controller.dispose();
+      window.dispose();
+    });
+
+    await tester.pumpWidget(
+      ShadApp(
+        theme: AppTheme.light,
+        home: QuickAddView(controller: controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('quick-add-target-p1')));
+    await tester.enterText(find.byType(EditableText), 'current target');
+    await tester.tap(find.text('添加'));
+    await tester.pumpAndSettle();
+
+    expect(submitted, <String?>['p1']);
+  });
+
   testWidgets('Quick Add target selector fits the three reference sizes', (
     tester,
   ) async {

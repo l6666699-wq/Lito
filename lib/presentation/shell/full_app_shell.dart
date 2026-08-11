@@ -11,6 +11,7 @@ import '../../app/theme/app_metrics.dart';
 import '../../app/theme/project_palette.dart';
 import '../../application/app_navigation_controller.dart';
 import '../../application/home_page_controller.dart';
+import '../../application/sticky_notes_controller.dart';
 import '../../application/window_controller.dart';
 import '../../application/workspace_controller.dart';
 import '../../icons/app_icons.dart';
@@ -29,12 +30,14 @@ class FullAppShell extends StatefulWidget {
     required this.controller,
     required this.windowController,
     required this.navigationController,
+    this.stickyNotesController,
     this.onToggleTheme,
   });
 
   final WorkspaceController controller;
   final WindowController windowController;
   final AppNavigationController navigationController;
+  final StickyNotesController? stickyNotesController;
   final VoidCallback? onToggleTheme;
 
   @override
@@ -48,10 +51,12 @@ class _MoreButton extends StatelessWidget {
     super.key,
     required this.tooltip,
     required this.onPressed,
+    this.icon = AppIcons.more,
   });
 
   final String tooltip;
   final VoidCallback onPressed;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +70,7 @@ class _MoreButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         foregroundColor: colors.textFaint,
         hoverBackgroundColor: colors.focusSoft,
-        child: const Icon(AppIcons.more, size: 15),
+        child: Icon(icon, size: 15),
       ),
     );
   }
@@ -152,6 +157,7 @@ class _FullAppShellState extends State<FullAppShell> {
                   child: _Sidebar(
                     controller: widget.controller,
                     navigationController: widget.navigationController,
+                    stickyNotesController: widget.stickyNotesController,
                   ),
                 ),
                 SizedBox(
@@ -169,6 +175,7 @@ class _FullAppShellState extends State<FullAppShell> {
                         onAddTask: _openHomeComposer,
                         searchFocusNode: _searchFocusNode,
                         onToggleTheme: widget.onToggleTheme,
+                        stickyNotesController: widget.stickyNotesController,
                       ),
                       Expanded(
                         child: _RouteContent(
@@ -223,6 +230,16 @@ class _RedoWorkspaceIntent extends Intent {
   const _RedoWorkspaceIntent();
 }
 
+class _NoopListenable implements Listenable {
+  const _NoopListenable();
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
+}
+
 class _RouteContent extends StatelessWidget {
   const _RouteContent({
     required this.controller,
@@ -265,6 +282,7 @@ class _Topbar extends StatelessWidget {
     required this.onAddTask,
     required this.searchFocusNode,
     required this.onToggleTheme,
+    this.stickyNotesController,
   });
 
   final WorkspaceController controller;
@@ -273,6 +291,7 @@ class _Topbar extends StatelessWidget {
   final VoidCallback onAddTask;
   final FocusNode searchFocusNode;
   final VoidCallback? onToggleTheme;
+  final StickyNotesController? stickyNotesController;
 
   @override
   Widget build(BuildContext context) {
@@ -401,6 +420,23 @@ class _Topbar extends StatelessWidget {
                           label: '设置',
                           active: navigationController.page == AppPage.settings,
                           onPressed: navigationController.goSettings,
+                        ),
+                      ),
+                      const SizedBox(width: AppMetrics.unit * 2),
+                      ListenableBuilder(
+                        listenable:
+                            stickyNotesController ?? const _NoopListenable(),
+                        builder: (context, child) => _TopbarButton(
+                          controlKey: const ValueKey<String>(
+                            'shell-sticky-notes-button',
+                          ),
+                          icon: AppIcons.stickyNotes,
+                          label: '便签',
+                          active:
+                              stickyNotesController?.hasActiveWindow ?? false,
+                          onPressed: stickyNotesController == null
+                              ? null
+                              : () => stickyNotesController!.openInbox(),
                         ),
                       ),
                       _TopbarDivider(),
@@ -823,10 +859,12 @@ class _Sidebar extends StatefulWidget {
   const _Sidebar({
     required this.controller,
     required this.navigationController,
+    this.stickyNotesController,
   });
 
   final WorkspaceController controller;
   final AppNavigationController navigationController;
+  final StickyNotesController? stickyNotesController;
 
   @override
   State<_Sidebar> createState() => _SidebarState();
@@ -973,6 +1011,7 @@ class _SidebarState extends State<_Sidebar> {
                           .toList(growable: false),
                       controller: controller,
                       navigationController: navigation,
+                      stickyNotesController: widget.stickyNotesController,
                       expanded: !_collapsedGroups.contains(group.id),
                       onToggle: () {
                         setState(() {
@@ -1005,6 +1044,11 @@ class _SidebarState extends State<_Sidebar> {
                         controller,
                         project,
                       ),
+                      onSticky: widget.stickyNotesController == null
+                          ? null
+                          : () => widget.stickyNotesController!.openProject(
+                              project.id,
+                            ),
                     ),
                   _ArchivedProjectsSection(
                     controller: controller,
@@ -1171,6 +1215,7 @@ class _GroupProjects extends StatelessWidget {
     required this.projects,
     required this.controller,
     required this.navigationController,
+    this.stickyNotesController,
     required this.expanded,
     required this.onToggle,
     required this.onMore,
@@ -1180,6 +1225,7 @@ class _GroupProjects extends StatelessWidget {
   final List<Project> projects;
   final WorkspaceController controller;
   final AppNavigationController navigationController;
+  final StickyNotesController? stickyNotesController;
   final bool expanded;
   final VoidCallback onToggle;
   final VoidCallback onMore;
@@ -1269,6 +1315,9 @@ class _GroupProjects extends StatelessWidget {
                   controller,
                   project,
                 ),
+                onSticky: stickyNotesController == null
+                    ? null
+                    : () => stickyNotesController!.openProject(project.id),
               ),
             ),
       ],
@@ -1283,6 +1332,7 @@ class _ProjectItem extends StatelessWidget {
     required this.active,
     required this.onPressed,
     required this.onMore,
+    this.onSticky,
   });
 
   final Project project;
@@ -1290,6 +1340,7 @@ class _ProjectItem extends StatelessWidget {
   final bool active;
   final VoidCallback onPressed;
   final VoidCallback onMore;
+  final VoidCallback? onSticky;
 
   @override
   Widget build(BuildContext context) {
@@ -1333,6 +1384,13 @@ class _ProjectItem extends StatelessWidget {
                 fontSize: 11,
               ),
             ),
+            if (onSticky != null)
+              _MoreButton(
+                key: ValueKey<String>('project-sticky-${project.id}'),
+                tooltip: '创建便签',
+                icon: AppIcons.stickyNotes,
+                onPressed: onSticky!,
+              ),
             _MoreButton(
               key: ValueKey<String>('project-more-${project.id}'),
               tooltip: '项目操作',

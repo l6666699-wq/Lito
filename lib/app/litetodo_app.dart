@@ -8,11 +8,13 @@ import '../application/app_navigation_controller.dart';
 import '../application/data_transfer_controller.dart';
 import '../application/quick_add_controller.dart';
 import '../application/settings_controller.dart';
+import '../application/sticky_notes_controller.dart';
 import '../application/window_controller.dart';
 import '../application/workspace_controller.dart';
 import '../domain/models/app_settings.dart';
 import '../domain/models/project_group.dart';
 import '../infrastructure/platform/data_directory_service.dart';
+import '../infrastructure/platform/sticky_notes_window_service.dart';
 import '../infrastructure/persistence/backup_service.dart';
 import '../presentation/shell/app_shell.dart';
 import '../presentation/settings/settings_scope.dart';
@@ -30,6 +32,7 @@ class LiteTodoApp extends StatefulWidget {
     this.backupService,
     this.dataTransferController,
     this.dataDirectoryService,
+    this.stickyNotesWindowService,
   });
 
   final WorkspaceController? controller;
@@ -40,6 +43,7 @@ class LiteTodoApp extends StatefulWidget {
   final BackupService? backupService;
   final DataTransferController? dataTransferController;
   final DataDirectoryService? dataDirectoryService;
+  final StickyNotesWindowService? stickyNotesWindowService;
 
   @override
   State<LiteTodoApp> createState() => _LiteTodoAppState();
@@ -73,6 +77,12 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
       widget.backupService ?? createTestBackupService();
   late final DataDirectoryService _dataDirectoryService =
       widget.dataDirectoryService ?? FakeDataDirectoryService();
+  late final StickyNotesController _stickyNotesController =
+      StickyNotesController(
+        workspace: _controller,
+        windowService:
+            widget.stickyNotesWindowService ?? FakeStickyNotesWindowService(),
+      );
   QuickAddControllerBinding? _quickAddBinding;
 
   @override
@@ -105,6 +115,7 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
     _controller.removeListener(_syncQuickAddTargets);
     _settingsController.removeListener(_syncQuickAddSettings);
     _quickAddBinding?.dispose();
+    _stickyNotesController.dispose();
     if (_ownsQuickAddController) _quickAddController.dispose();
     if (_ownsWindowController) _windowController.dispose();
     if (_ownsController) _controller.dispose();
@@ -232,6 +243,7 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
                   windowController: _windowController,
                   quickAddController: _quickAddController,
                   navigationController: _navigationController,
+                  stickyNotesController: _stickyNotesController,
                   onToggleTheme: _toggleTheme,
                   fontFamily: AppTheme.fontFamilyFor(settings.fontFamilyKey),
                   fontFamilyFallback: AppTheme.fontFamilyFallbackFor(

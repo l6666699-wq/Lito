@@ -1,11 +1,21 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <utility>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "sticky_window_manager.h"
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+namespace {
+constexpr char kStickyChannel[] = "litetodo/sticky_windows";
+}  // namespace
+
+FlutterWindow::FlutterWindow(const flutter::DartProject& project,
+                             StickyWindowManager* sticky_manager,
+                             std::string sticky_key)
+    : project_(project),
+      sticky_manager_(sticky_manager),
+      sticky_key_(std::move(sticky_key)) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -27,6 +37,25 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  sticky_channel_ = std::make_unique<
+      flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), kStickyChannel,
+      &flutter::StandardMethodCodec::GetInstance());
+  if (sticky_manager_ != nullptr && !IsStickyWindow()) {
+    sticky_channel_->SetMethodCallHandler(
+        [this](const auto& call, auto result) {
+          // The primary runner owns the native manager; this callback only
+          // exists after the manager pointer has been wired by main.cpp.
+          sticky_manager_->HandlePrimaryMethodCall(call, std::move(result));
+        });
+  } else if (sticky_manager_ != nullptr) {
+    sticky_channel_->SetMethodCallHandler(
+        [this](const auto& call, auto result) {
+          sticky_manager_->HandleSecondaryMethodCall(
+              sticky_key_, call, std::move(result));
+        });
+  }
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -40,6 +69,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  sticky_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -51,6 +81,11 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (IsStickyWindow() && message == WM_CLOSE) {
+    sticky_manager_->Close(sticky_key_);
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
@@ -68,4 +103,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+}
+
+void FlutterWindow::SendStickySnapshot(const std::string& snapshot) {
+  if (sticky_channel_ == nullptr) return;
+  sticky_channel_->InvokeMethod(
+      "update", std::make_unique<flutter::EncodableValue>(snapshot));
 }

@@ -782,6 +782,19 @@ class WindowController extends ChangeNotifier {
     };
     await _desktop.setAlwaysOnTop(_alwaysOnTop);
     await _desktop.setSkipTaskbar(_skipTaskbar);
+    if (mode == WindowMode.quickAdd) {
+      final bounds = await _readVisibleBounds();
+      if (bounds != null && !bounds.isEmpty) {
+        final size = layout.size;
+        final position = Offset(
+          bounds.left + (bounds.width - size.width) / 2,
+          bounds.top + (bounds.height - size.height) / 2,
+        );
+        await _desktop.writeGeometry(
+          WindowGeometry(position: position, size: size),
+        );
+      }
+    }
     final geometry = restoreGeometry && _rememberWindowPosition
         ? _geometries[mode]
         : null;
@@ -846,6 +859,17 @@ class WindowController extends ChangeNotifier {
       return geometry;
     }
     return WindowGeometry(position: Offset(x, y), size: Size(width, height));
+  }
+
+  Future<Rect?> _readVisibleBounds() async {
+    final provider = visibleBoundsProvider;
+    try {
+      return provider == null
+          ? await _desktop.readVisibleBounds()
+          : await provider();
+    } catch (_) {
+      return null;
+    }
   }
 
   void _scheduleGeometryPersist(WindowMode mode, WindowGeometry geometry) {

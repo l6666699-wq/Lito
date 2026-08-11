@@ -32,6 +32,7 @@ class TodoList extends StatefulWidget {
     this.onRequestAddSibling,
     this.composerError,
     this.emptyLabel = '没有可见待办',
+    this.readOnly = false,
   });
 
   final WorkspaceController controller;
@@ -44,6 +45,7 @@ class TodoList extends StatefulWidget {
   final ValueChanged<String?>? onRequestAddSibling;
   final String? composerError;
   final String emptyLabel;
+  final bool readOnly;
 
   @override
   State<TodoList> createState() => _TodoListState();
@@ -102,6 +104,8 @@ class _TodoListState extends State<TodoList> {
       _select(rows[next].todo.id);
       return KeyEventResult.handled;
     }
+
+    if (widget.readOnly) return KeyEventResult.ignored;
 
     final id = _selectedId;
     if (id == null || selectedIndex < 0) return KeyEventResult.ignored;
@@ -336,25 +340,39 @@ class _TodoListState extends State<TodoList> {
                       dropPosition: _dropCandidate?.targetId == row.todo.id
                           ? _dropCandidate?.position
                           : null,
-                      onDragMove: _updateDropCandidate,
-                      onDragLeave: () => _leaveDrop(row.todo.id),
-                      onAcceptDrag: _acceptDrop,
+                      onDragMove: widget.readOnly ? null : _updateDropCandidate,
+                      onDragLeave: widget.readOnly
+                          ? null
+                          : () => _leaveDrop(row.todo.id),
+                      onAcceptDrag: widget.readOnly ? null : _acceptDrop,
                       rowHeightOverride: needsViewportCompatibilityRow
                           ? AppMetrics.rowHeight
                           : null,
                       onSelect: () => _select(row.todo.id),
-                      onToggleCollapsed: () =>
-                          widget.controller.toggleCollapsed(row.todo.id),
-                      onToggleCompleted: () =>
-                          widget.controller.toggleTodoCompleted(row.todo.id),
-                      onEdit: (title) =>
-                          widget.controller.editTodoTitle(row.todo.id, title),
+                      onToggleCollapsed: widget.readOnly
+                          ? () {}
+                          : () =>
+                                widget.controller.toggleCollapsed(row.todo.id),
+                      onToggleCompleted: widget.readOnly
+                          ? null
+                          : () => widget.controller.toggleTodoCompleted(
+                              row.todo.id,
+                            ),
+                      onEdit: widget.readOnly
+                          ? null
+                          : (title) => widget.controller.editTodoTitle(
+                              row.todo.id,
+                              title,
+                            ),
                       onAddChild: widget.onRequestAddChild == null
                           ? null
                           : () => widget.onRequestAddChild!.call(row.todo.id),
-                      onArchive: () =>
-                          widget.controller.archiveTodo(row.todo.id),
-                      onDelete: () => widget.controller.deleteTodo(row.todo.id),
+                      onArchive: widget.readOnly
+                          ? null
+                          : () => widget.controller.archiveTodo(row.todo.id),
+                      onDelete: widget.readOnly
+                          ? null
+                          : () => widget.controller.deleteTodo(row.todo.id),
                     );
                   },
                 ),

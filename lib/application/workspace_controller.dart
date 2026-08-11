@@ -116,6 +116,38 @@ class WorkspaceController extends ChangeNotifier {
     return TodoTreeService(filtered).buildVisibleRows();
   }
 
+  /// Builds a live tree projection for a sticky-note window without changing
+  /// the primary shell's current navigation scope.
+  List<VisibleTodoRow> visibleRowsForProject(String? projectId) {
+    final filtered = _todos
+        .where((todo) => _matchesStickyProject(todo, projectId))
+        .toList(growable: false);
+    return TodoTreeService(filtered).buildVisibleRows();
+  }
+
+  bool _matchesStickyProject(TodoItem todo, String? projectId) {
+    if (todo.projectId != projectId || todo.archivedAt != null) return false;
+    final project = _projectFor(todo.projectId);
+    if (project?.archived == true) return false;
+    if (_groupFor(project?.groupId)?.archived == true) return false;
+    return true;
+  }
+
+  /// Replaces the in-memory projection from the primary engine. Secondary
+  /// sticky windows use this read-only boundary; it never schedules a JSON
+  /// write and never changes the current scope.
+  void applyExternalSnapshot(AppData data) {
+    if (data.schemaVersion != AppData.currentSchemaVersion || _disposed) {
+      return;
+    }
+    _applyData(data);
+    _dirty = false;
+    _benchmarkMode = true;
+    _initialized = true;
+    _lastPersistenceError = null;
+    notifyListeners();
+  }
+
   Map<WorkspaceScope, int> get scopeCounts => <WorkspaceScope, int>{
     for (final value in WorkspaceScope.values)
       value: _todos.where((todo) => _matchesScope(todo, value)).length,

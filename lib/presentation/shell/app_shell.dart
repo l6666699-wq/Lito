@@ -4,6 +4,7 @@ import '../../app/app_constants.dart';
 import '../../app/theme/app_colors.dart';
 import '../../application/quick_add_controller.dart';
 import '../../application/app_navigation_controller.dart';
+import '../../application/sticky_notes_controller.dart';
 import '../../application/window_controller.dart';
 import '../../application/workspace_controller.dart';
 import '../compact/compact_workspace.dart';
@@ -17,6 +18,7 @@ class AppShell extends StatelessWidget {
     required this.windowController,
     required this.quickAddController,
     required this.navigationController,
+    this.stickyNotesController,
     this.onToggleTheme,
     this.fontFamily = AppConstants.systemFontFamily,
     this.fontFamilyFallback = const <String>[AppConstants.fallbackFontFamily],
@@ -26,6 +28,7 @@ class AppShell extends StatelessWidget {
   final WindowController windowController;
   final QuickAddController quickAddController;
   final AppNavigationController navigationController;
+  final StickyNotesController? stickyNotesController;
   final VoidCallback? onToggleTheme;
   final String fontFamily;
   final List<String> fontFamilyFallback;
@@ -53,6 +56,7 @@ class AppShell extends StatelessWidget {
                 windowController: windowController,
                 navigationController: navigationController,
                 onToggleTheme: onToggleTheme,
+                stickyNotesController: stickyNotesController,
               ),
               WindowLifecycleState.compactVisible => CompactWorkspace(
                 controller: controller,

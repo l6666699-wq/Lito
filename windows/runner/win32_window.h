@@ -34,7 +34,8 @@ class Win32Window {
   // consistent size this function will scale the inputted width and height as
   // as appropriate for the default monitor. The window is invisible until
   // |Show| is called. Returns true if the window was created successfully.
-  bool Create(const std::wstring& title, const Point& origin, const Size& size);
+  bool Create(const std::wstring& title, const Point& origin, const Size& size,
+              DWORD window_style = WS_OVERLAPPEDWINDOW);
 
   // Show the current window. Returns true if the window was successfully shown.
   bool Show();
@@ -44,6 +45,9 @@ class Win32Window {
 
   // Inserts |content| into the window tree.
   void SetChildContent(HWND content);
+
+  // Starts a native caption drag for frameless sticky windows.
+  void StartDragging();
 
   // Returns the backing Window handle to enable clients to set icon and other
   // window properties. Returns nullptr if the window has been destroyed.
