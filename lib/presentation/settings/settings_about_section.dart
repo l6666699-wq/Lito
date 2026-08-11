@@ -40,7 +40,7 @@ class AboutSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     return SettingsCard(
-      icon: AppIcons.info,
+      icon: AppIcons.about,
       title: '关于 LiteTodo',
       subtitle: '版本信息与第三方许可',
       colors: colors,
@@ -56,7 +56,7 @@ class AboutSettingsSection extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(AppMetrics.unit * 3),
-                  child: Icon(AppIcons.info, color: colors.focus, size: 22),
+                  child: Icon(AppIcons.about, color: colors.focus, size: 22),
                 ),
               ),
               const SizedBox(width: AppMetrics.unit * 3),
@@ -84,6 +84,7 @@ class AboutSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.about,
           title: '版本',
           description: '当前安装版本与构建号',
           colors: colors,
@@ -97,6 +98,7 @@ class AboutSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.about,
           title: '技术',
           description: '应用运行平台',
           colors: colors,
@@ -107,9 +109,11 @@ class AboutSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.about,
           title: '第三方许可证',
           description: '查看 LiteTodo 使用的开源软件许可',
           colors: colors,
+          showDivider: false,
           trailing: Semantics(
             button: true,
             label: '查看第三方许可证',

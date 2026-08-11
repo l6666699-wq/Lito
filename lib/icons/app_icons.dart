@@ -19,6 +19,15 @@ abstract final class AppIcons {
   static const IconData statistics = LucideIcons.chartNoAxesColumn;
   static const IconData theme = LucideIcons.moon;
   static const IconData palette = LucideIcons.palette;
+  // Settings keeps these role-specific aliases separate from shell/window
+  // controls so visual updates do not change existing product surfaces.
+  static const IconData appearance = LucideIcons.palette;
+  static const IconData windowSettings = LucideIcons.panelsTopLeft;
+  static const IconData about = LucideIcons.circleHelp;
+  static const IconData monitor = LucideIcons.monitor;
+  static const IconData download = LucideIcons.download;
+  static const IconData keyboard = LucideIcons.keyboard;
+  static const IconData hotkeyEdit = LucideIcons.pencil;
   static const IconData inbox = LucideIcons.inbox;
   static const IconData today = LucideIcons.calendarDays;
   static const IconData recent = LucideIcons.clock3;

@@ -447,6 +447,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
+              const SizedBox(height: AppMetrics.unit * 2),
+              SettingsFooterHint(colors: colors),
             ],
           ),
         );

@@ -27,12 +27,13 @@ class AppearanceSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = scope.settingsController;
     return SettingsCard(
-      icon: AppIcons.theme,
+      icon: AppIcons.appearance,
       title: '主题设置',
       subtitle: '颜色与外观偏好会即时应用',
       colors: colors,
       children: [
         SettingsRow(
+          icon: AppIcons.theme,
           title: '主题模式',
           description: '跟随系统或固定使用浅色、深色主题',
           colors: colors,
@@ -48,6 +49,7 @@ class AppearanceSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.palette,
           title: '强调色',
           description: '用于按钮、焦点和选中状态',
           colors: colors,
@@ -58,9 +60,11 @@ class AppearanceSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.theme,
           title: '主题预览',
           description: '选择预览卡片，立即应用对应的主题组合',
           colors: colors,
+          showDivider: false,
           trailing: ThemePreviewPicker(
             selectedMode: settings.themeMode,
             selectedAccentKey: settings.accentColorKey,

@@ -56,6 +56,7 @@ class GeneralSettingsSection extends StatelessWidget {
       colors: colors,
       children: [
         SettingsRow(
+          icon: AppIcons.monitor,
           title: '开机启动',
           description: '登录 Windows 后自动启动 LiteTodo',
           colors: colors,
@@ -66,6 +67,7 @@ class GeneralSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.inbox,
           title: '启动时隐藏到托盘',
           description: '应用启动后不主动显示窗口，可从托盘打开',
           colors: colors,
@@ -76,6 +78,7 @@ class GeneralSettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.inbox,
           title: '关闭时最小化到托盘',
           description: '关闭窗口后继续在后台运行',
           colors: colors,
@@ -87,6 +90,7 @@ class GeneralSettingsSection extends StatelessWidget {
         ),
         if (includeWindowSettings) ...[
           SettingsRow(
+            icon: AppIcons.windowSettings,
             title: '默认窗口模式',
             description: '下次启动时使用的窗口布局',
             colors: colors,
@@ -103,9 +107,11 @@ class GeneralSettingsSection extends StatelessWidget {
           ),
         ],
         SettingsRow(
+          icon: AppIcons.keyboard,
           title: '全局快捷键',
           description: '按下组合键快速打开添加 Todo',
           colors: colors,
+          showDivider: false,
           trailing: ShadSwitch(
             value: settings.globalHotkeyEnabled,
             enabled: canEdit,
@@ -121,6 +127,7 @@ class GeneralSettingsSection extends StatelessWidget {
         ),
         if (includeWindowSettings) ...[
           SettingsRow(
+            icon: AppIcons.windowSettings,
             title: '记住窗口位置',
             description: crossRestartGeometryAvailable
                 ? '跨重启恢复完整与紧凑模式的位置和尺寸'
@@ -134,6 +141,7 @@ class GeneralSettingsSection extends StatelessWidget {
           ),
           const SizedBox(height: AppMetrics.unit),
           SettingsRow(
+            icon: AppIcons.pin,
             title: '紧凑模式置顶',
             description: '紧凑模式始终显示在其他窗口上方',
             colors: colors,
@@ -144,6 +152,7 @@ class GeneralSettingsSection extends StatelessWidget {
             ),
           ),
           SettingsRow(
+            icon: AppIcons.inbox,
             title: '紧凑模式跳过任务栏',
             description: '紧凑模式不在 Windows 任务栏显示按钮',
             colors: colors,
@@ -154,6 +163,7 @@ class GeneralSettingsSection extends StatelessWidget {
             ),
           ),
           SettingsRow(
+            icon: AppIcons.lock,
             title: '锁定紧凑模式位置',
             description: '锁定后禁止拖动和调整尺寸，但不影响 Todo 操作',
             colors: colors,
@@ -164,9 +174,11 @@ class GeneralSettingsSection extends StatelessWidget {
             ),
           ),
           SettingsRow(
+            icon: AppIcons.restore,
             title: '恢复默认窗口位置',
             description: '清除完整与紧凑模式的保存位置，下次使用默认尺寸',
             colors: colors,
+            showDivider: false,
             trailing: ShadButton.outline(
               size: ShadButtonSize.sm,
               leading: const Icon(AppIcons.restore, size: 14),

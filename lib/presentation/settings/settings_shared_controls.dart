@@ -30,6 +30,7 @@ class PageHeader extends StatelessWidget {
               children: [
                 Text(
                   '设置',
+                  key: const ValueKey<String>('settings-page-title'),
                   style: TextStyle(
                     color: colors.text,
                     fontSize: 24,
@@ -75,15 +76,15 @@ class CategoryRail extends StatelessWidget {
 
   static const _items = <({IconData icon, String title, String subtitle})>[
     (icon: AppIcons.settings, title: '通用设置', subtitle: '窗口与快捷键'),
-    (icon: AppIcons.theme, title: '主题设置', subtitle: '颜色与外观'),
+    (icon: AppIcons.appearance, title: '主题设置', subtitle: '颜色与外观'),
     (icon: AppIcons.font, title: '字体设置', subtitle: '字体与大小'),
     (icon: AppIcons.backup, title: '数据与备份', subtitle: '本地文件管理'),
   ];
 
   static const _additionalItems =
       <({IconData icon, String title, String subtitle})>[
-        (icon: AppIcons.windowMaximize, title: '桌面与窗口', subtitle: '窗口行为与位置'),
-        (icon: AppIcons.info, title: '关于', subtitle: '版本与许可证'),
+        (icon: AppIcons.windowSettings, title: '桌面与窗口', subtitle: '窗口行为与位置'),
+        (icon: AppIcons.about, title: '关于', subtitle: '版本与许可证'),
       ];
 
   @override
@@ -108,14 +109,28 @@ class CategoryRail extends StatelessWidget {
         ),
     ];
     if (horizontal) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit),
-        child: Row(children: children),
+      return DecoratedBox(
+        key: const ValueKey<String>('settings-category-rail'),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border.all(color: colors.border),
+          borderRadius: BorderRadius.circular(AppMetrics.cardRadius),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppMetrics.cardRadius),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
+            child: Row(children: children),
+          ),
+        ),
       );
     }
     final railContent = Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit * 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppMetrics.unit * 1.5,
+        vertical: AppMetrics.unit * 2,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children,
@@ -206,13 +221,15 @@ class CategoryItem extends StatelessWidget {
         onTap: onTap,
         child: Stack(
           children: [
-            DecoratedBox(
+            AnimatedContainer(
+              key: selected
+                  ? const ValueKey<String>('settings-category-active')
+                  : null,
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
               decoration: BoxDecoration(
                 color: selected ? colors.focusSoft : colors.transparent,
                 borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
-                border: selected
-                    ? Border.all(color: colors.focus.withValues(alpha: .16))
-                    : null,
               ),
               child: content,
             ),
@@ -258,31 +275,42 @@ class SettingsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppMetrics.cardRadius),
-        border: Border.all(color: colors.border),
+        border: Border.all(color: colors.border.withValues(alpha: .9)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppMetrics.unit * 4),
+        padding: const EdgeInsets.fromLTRB(
+          AppMetrics.unit * 5,
+          AppMetrics.unit * 5,
+          AppMetrics.unit * 5,
+          AppMetrics.unit * 3,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              key: ValueKey<String>('settings-card-header-$title'),
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.focusSoft,
-                    borderRadius: BorderRadius.circular(
-                      AppMetrics.normalRadius,
+                SizedBox(
+                  key: ValueKey<String>('settings-card-icon-$title'),
+                  width: 36,
+                  height: 36,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.focusSoft,
+                      borderRadius: BorderRadius.circular(
+                        AppMetrics.normalRadius,
+                      ),
+                      border: Border.all(
+                        color: colors.focus.withValues(alpha: .14),
+                      ),
                     ),
-                    border: Border.all(
-                      color: colors.focus.withValues(alpha: .16),
+                    child: Center(
+                      child: Icon(icon, size: 18, color: colors.focus),
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
-                    child: Icon(icon, size: 17, color: colors.focus),
                   ),
                 ),
-                const SizedBox(width: AppMetrics.unit * 2.5),
+                const SizedBox(width: AppMetrics.unit * 3),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,26 +319,31 @@ class SettingsCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           color: colors.text,
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
+                          height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: AppMetrics.unit),
                       Text(
                         subtitle,
-                        style: TextStyle(color: colors.textMuted, fontSize: 12),
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontSize: 12,
+                          height: 1.25,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppMetrics.unit * 3),
+            const SizedBox(height: AppMetrics.unit * 4),
             DecoratedBox(
-              decoration: BoxDecoration(color: colors.borderStrong),
+              decoration: BoxDecoration(color: colors.border),
               child: const SizedBox(height: 1),
             ),
-            const SizedBox(height: AppMetrics.unit * .5),
+            const SizedBox(height: AppMetrics.unit),
             ...children,
           ],
         ),
@@ -322,46 +355,82 @@ class SettingsCard extends StatelessWidget {
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
+    this.icon,
     required this.title,
     required this.description,
     required this.colors,
     required this.trailing,
+    this.showDivider = true,
   });
 
+  final IconData? icon;
   final String title;
   final String description;
   final AppColorScheme colors;
   final Widget trailing;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit * 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.only(
+        top: AppMetrics.unit * 2.5,
+        bottom: AppMetrics.unit * 2.5,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: colors.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                SizedBox(
+                  width: AppMetrics.unit * 6,
+                  child: Icon(icon, size: 16, color: colors.textMuted),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  description,
-                  style: TextStyle(color: colors.textMuted, fontSize: 11),
-                ),
+                const SizedBox(width: AppMetrics.unit * 2),
               ],
-            ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: AppMetrics.unit),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 11,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppMetrics.unit * 4),
+              Flexible(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: trailing,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppMetrics.unit * 4),
-          Flexible(child: trailing),
+          if (showDivider) ...[
+            const SizedBox(height: AppMetrics.unit * 2.5),
+            DecoratedBox(
+              decoration: BoxDecoration(color: colors.border),
+              child: const SizedBox(height: 1),
+            ),
+          ],
         ],
       ),
     );
@@ -502,11 +571,13 @@ class HotkeyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
+      key: const ValueKey<String>('settings-hotkey-row'),
       padding: const EdgeInsets.only(
-        top: AppMetrics.unit,
-        bottom: AppMetrics.unit * 1.5,
+        top: AppMetrics.unit * 1.5,
+        bottom: AppMetrics.unit * 2,
       ),
       child: DecoratedBox(
+        key: const ValueKey<String>('settings-hotkey-card'),
         decoration: BoxDecoration(
           color: colors.surfaceSubtle,
           borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
@@ -514,10 +585,11 @@ class HotkeyRow extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppMetrics.unit * 2.5,
-            vertical: AppMetrics.unit * 1.5,
+            horizontal: AppMetrics.unit * 3,
+            vertical: AppMetrics.unit * 2,
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(
@@ -526,18 +598,28 @@ class HotkeyRow extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
-                  child: Icon(AppIcons.shortcut, size: 15, color: colors.focus),
+                  child: Icon(AppIcons.keyboard, size: 15, color: colors.focus),
                 ),
               ),
               const SizedBox(width: AppMetrics.unit * 2),
               Expanded(
-                child: Text(
-                  '当前快捷键',
-                  style: TextStyle(
-                    color: colors.text,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '当前快捷键',
+                      style: TextStyle(
+                        color: colors.text,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppMetrics.unit),
+                    Text(
+                      '按下组合键快速打开添加 Todo',
+                      style: TextStyle(color: colors.textMuted, fontSize: 11),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: AppMetrics.unit * 2),
@@ -549,7 +631,7 @@ class HotkeyRow extends StatelessWidget {
                   enabled: enabled,
                   onSubmitted: onSubmitted,
                   placeholder: const Text('Ctrl+Alt+Space'),
-                  leading: const Icon(AppIcons.shortcut, size: 14),
+                  leading: const Icon(AppIcons.hotkeyEdit, size: 14),
                 ),
               ),
             ],
@@ -687,6 +769,27 @@ class StatusBanner extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsFooterHint extends StatelessWidget {
+  const SettingsFooterHint({super.key, required this.colors});
+
+  final AppColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const ValueKey<String>('settings-footer-hint'),
+      padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit * 3),
+      child: Center(
+        child: Text(
+          '设置会自动保存到本地。',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: colors.textFaint, fontSize: 11),
         ),
       ),
     );

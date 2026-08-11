@@ -31,6 +31,7 @@ class TypographySettingsSection extends StatelessWidget {
       colors: colors,
       children: [
         SettingsRow(
+          icon: AppIcons.font,
           title: '字体',
           description: '应用界面使用的字体族',
           colors: colors,
@@ -46,9 +47,11 @@ class TypographySettingsSection extends StatelessWidget {
           ),
         ),
         SettingsRow(
+          icon: AppIcons.font,
           title: '字体大小',
           description: '${(settings.fontScale * 100).round()}% · 范围 90%–115%',
           colors: colors,
+          showDivider: false,
           trailing: SizedBox(
             width: 240,
             child: ShadSlider(

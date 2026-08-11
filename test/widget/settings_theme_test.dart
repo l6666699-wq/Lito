@@ -31,4 +31,13 @@ void main() {
     expect(dark.colorScheme.foreground, AppColors.darkText);
     expect(dark.colorScheme.border, AppColors.darkBorder);
   });
+
+  test('settings surfaces retain quiet contrast in both theme modes', () {
+    expect(AppColors.lightSurface, isNot(AppColors.lightCanvas));
+    expect(AppColors.lightSurfaceSubtle, isNot(AppColors.lightSurface));
+    expect(AppColors.lightBorder, isNot(AppColors.lightSurface));
+    expect(AppColors.darkSurface, isNot(AppColors.darkCanvas));
+    expect(AppColors.darkSurfaceSubtle, isNot(AppColors.darkSurface));
+    expect(AppColors.darkBorder, isNot(AppColors.darkSurface));
+  });
 }

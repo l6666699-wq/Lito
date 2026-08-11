@@ -484,6 +484,104 @@ void main() {
     },
   );
 
+  testWidgets(
+    'settings visual hierarchy keeps active rail, aligned headers, and controls readable',
+    (tester) async {
+      final settings = SettingsController(
+        repository: InMemorySettingsRepository(),
+      );
+      await settings.initialize();
+      final window = WindowController(
+        desktopService: FakeDesktopWindowService(),
+      );
+      await window.initialize();
+      final workspace = WorkspaceController();
+      final backup = BackupService(
+        directory: Directory(
+          '${Directory.systemTemp.path}${Platform.pathSeparator}LiteTodo-settings-visual-test',
+        ),
+      );
+      final directory = FakeDataDirectoryService();
+      addTearDown(() {
+        settings.dispose();
+        window.dispose();
+        workspace.dispose();
+      });
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      Future<void> pumpAt(Size size) async {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(
+          ShadApp(
+            theme: AppTheme.lightFor(),
+            home: SettingsScope(
+              settingsController: settings,
+              backupService: backup,
+              workspaceController: workspace,
+              windowController: window,
+              dataDirectoryService: directory,
+              child: const SettingsPage(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      await pumpAt(const Size(1672, 941));
+      final rail = find.byKey(const ValueKey<String>('settings-category-rail'));
+      final railRect = tester.getRect(rail);
+      final activeRect = tester.getRect(
+        find.byKey(const ValueKey<String>('settings-category-active')),
+      );
+      expect(railRect.width, closeTo(260, 0.01));
+      expect(activeRect.left, greaterThan(railRect.left));
+      expect(activeRect.right, lessThan(railRect.right));
+
+      final headerRect = tester.getRect(
+        find.byKey(const ValueKey<String>('settings-card-header-通用设置')),
+      );
+      final iconRect = tester.getRect(
+        find.byKey(const ValueKey<String>('settings-card-icon-通用设置')),
+      );
+      expect(iconRect.top, closeTo(headerRect.top, 0.01));
+      final card = find.byType(SettingsCard).first;
+      final titleRect = tester.getRect(
+        find.descendant(of: card, matching: find.text('通用设置')),
+      );
+      expect(titleRect.top, closeTo(iconRect.top, 4));
+
+      final switchRect = tester.getRect(find.byType(ShadSwitch).first);
+      final cardRect = tester.getRect(card);
+      expect(switchRect.right, greaterThan(cardRect.center.dx));
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey<String>('settings-footer-hint')))
+            .center
+            .dx,
+        closeTo(1672 / 2, 1),
+      );
+
+      await pumpAt(const Size(680, 860));
+      final narrowRail = find.byKey(
+        const ValueKey<String>('settings-category-rail'),
+      );
+      expect(tester.getRect(narrowRail).width, closeTo(632, 0.01));
+      expect(
+        tester
+            .getRect(
+              find.byKey(const ValueKey<String>('settings-category-active')),
+            )
+            .left,
+        greaterThan(tester.getRect(narrowRail).left),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('settings-hotkey-card')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('settings surface keeps rail and hotkey readable in dark theme', (
     tester,
   ) async {
