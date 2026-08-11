@@ -558,57 +558,94 @@ class _SearchFieldState extends State<_SearchField> {
               Icon(AppIcons.search, size: 15, color: colors.textMuted),
               const SizedBox(width: AppMetrics.unit),
               Expanded(
-                child: Stack(
-                  alignment: Alignment.centerLeft,
-                  children: [
-                    if (_textController.text.isEmpty)
-                      IgnorePointer(
-                        child: Text(
-                          '搜索任务、项目或标签...',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.textFaint,
-                            fontSize: 12,
+                child: Padding(
+                  // Keep the editable line and its placeholder on the same
+                  // inset so their baselines remain stable across fonts.
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppMetrics.unit,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      if (_textController.text.isEmpty)
+                        IgnorePointer(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '搜索任务、项目或标签...',
+                              key: const ValueKey<String>(
+                                'shell-search-placeholder',
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textFaint,
+                                fontSize: 12,
+                                height: 1.2,
+                              ),
+                            ),
                           ),
                         ),
+                      Positioned.fill(
+                        child: EditableText(
+                          key: const ValueKey<String>('shell-search-field'),
+                          controller: _textController,
+                          focusNode: widget.focusNode,
+                          style: TextStyle(
+                            color: colors.text,
+                            fontSize: 12,
+                            height: 1.2,
+                          ),
+                          strutStyle: const StrutStyle(
+                            fontSize: 12,
+                            height: 1.2,
+                            forceStrutHeight: true,
+                          ),
+                          cursorColor: colors.focus,
+                          backgroundCursorColor: colors.textFaint,
+                          selectionColor: colors.focusSoft,
+                          maxLines: 1,
+                          onChanged: (value) {
+                            widget.controller.setSearchQuery(value);
+                            if (mounted) setState(() {});
+                          },
+                          textInputAction: TextInputAction.search,
+                        ),
                       ),
-                    Positioned.fill(
-                      child: EditableText(
-                        key: const ValueKey<String>('shell-search-field'),
-                        controller: _textController,
-                        focusNode: widget.focusNode,
-                        style: TextStyle(color: colors.text, fontSize: 12),
-                        cursorColor: colors.focus,
-                        backgroundCursorColor: colors.textFaint,
-                        selectionColor: colors.focusSoft,
-                        maxLines: 1,
-                        onChanged: (value) {
-                          widget.controller.setSearchQuery(value);
-                          if (mounted) setState(() {});
-                        },
-                        textInputAction: TextInputAction.search,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(right: AppMetrics.unit * 2),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    border: Border.all(color: colors.borderStrong),
-                    borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppMetrics.unit,
-                      vertical: 2,
+                padding: const EdgeInsets.only(
+                  left: AppMetrics.unit,
+                  right: AppMetrics.unit * 2,
+                ),
+                child: SizedBox(
+                  key: const ValueKey<String>('shell-search-shortcut'),
+                  height: 22,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      border: Border.all(color: colors.borderStrong),
+                      borderRadius: BorderRadius.circular(
+                        AppMetrics.smallRadius,
+                      ),
                     ),
-                    child: Text(
-                      'Ctrl K',
-                      style: TextStyle(color: colors.textFaint, fontSize: 10),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppMetrics.unit * 1.5,
+                        ),
+                        child: Text(
+                          'Ctrl K',
+                          style: TextStyle(
+                            color: colors.textFaint,
+                            fontSize: 10,
+                            height: 1,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -814,7 +851,8 @@ class _SidebarState extends State<_Sidebar> {
                     active:
                         navigation.page == AppPage.home &&
                         controller.scope == WorkspaceScope.inbox,
-                    accent: ProjectPalette.resolve('gray').accent,
+                    accent: colors.focus,
+                    activeBackground: colors.focusSoft,
                     onPressed: () => _selectHome(controller.selectInbox),
                   ),
                   _ScopeItem(
@@ -824,7 +862,8 @@ class _SidebarState extends State<_Sidebar> {
                     active:
                         navigation.page == AppPage.home &&
                         controller.scope == WorkspaceScope.today,
-                    accent: ProjectPalette.resolve('blue').accent,
+                    accent: colors.focus,
+                    activeBackground: colors.focusSoft,
                     onPressed: () => _selectHome(controller.selectToday),
                   ),
                   _ScopeItem(
@@ -834,7 +873,8 @@ class _SidebarState extends State<_Sidebar> {
                     active:
                         navigation.page == AppPage.home &&
                         controller.scope == WorkspaceScope.recent,
-                    accent: ProjectPalette.resolve('violet').accent,
+                    accent: colors.focus,
+                    activeBackground: colors.focusSoft,
                     onPressed: () => _selectHome(controller.selectRecent),
                   ),
                   _ScopeItem(
@@ -844,7 +884,8 @@ class _SidebarState extends State<_Sidebar> {
                     active:
                         navigation.page == AppPage.home &&
                         controller.scope == WorkspaceScope.completed,
-                    accent: ProjectPalette.resolve('green').accent,
+                    accent: colors.focus,
+                    activeBackground: colors.focusSoft,
                     onPressed: () => _selectHome(controller.selectCompleted),
                   ),
                   _ScopeItem(
@@ -854,7 +895,8 @@ class _SidebarState extends State<_Sidebar> {
                     active:
                         navigation.page == AppPage.home &&
                         controller.scope == WorkspaceScope.archived,
-                    accent: ProjectPalette.resolve('gray').accent,
+                    accent: colors.focus,
+                    activeBackground: colors.focusSoft,
                     onPressed: () => _selectHome(controller.selectArchived),
                   ),
                   const SizedBox(height: AppMetrics.unit * 2),
@@ -887,6 +929,7 @@ class _SidebarState extends State<_Sidebar> {
                         controller.scope == WorkspaceScope.all &&
                         controller.projectScopeId == null,
                     accent: colors.focus,
+                    activeBackground: colors.focusSoft,
                     onPressed: () => _selectHome(controller.selectAll),
                   ),
                   const SizedBox(height: AppMetrics.unit),
@@ -950,10 +993,7 @@ class _SidebarState extends State<_Sidebar> {
               ),
             ),
           ),
-          _SidebarFooter(
-            controller: controller,
-            navigationController: navigation,
-          ),
+          _SidebarFooter(controller: controller),
         ],
       ),
     );
@@ -1037,6 +1077,7 @@ class _ScopeItem extends StatelessWidget {
     required this.count,
     required this.active,
     required this.accent,
+    this.activeBackground,
     required this.onPressed,
   });
 
@@ -1045,6 +1086,7 @@ class _ScopeItem extends StatelessWidget {
   final int count;
   final bool active;
   final Color accent;
+  final Color? activeBackground;
   final VoidCallback onPressed;
 
   @override
@@ -1058,7 +1100,9 @@ class _ScopeItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 2),
         padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
         decoration: BoxDecoration(
-          color: active ? accent.withValues(alpha: .11) : null,
+          color: active
+              ? activeBackground ?? accent.withValues(alpha: .11)
+              : null,
           borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
         ),
         child: Row(
@@ -1136,11 +1180,17 @@ class _GroupProjects extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    expanded ? AppIcons.chevronDown : AppIcons.chevronRight,
-                    size: 13,
-                    color: colors.textFaint,
+                  SizedBox(
+                    width: AppMetrics.iconSize,
+                    child: Center(
+                      child: Icon(
+                        expanded ? AppIcons.chevronDown : AppIcons.chevronRight,
+                        size: 13,
+                        color: colors.textFaint,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: AppMetrics.unit),
                   ProjectIcon(
                     iconKey: group.iconKey,
                     color: palette.accent,
@@ -1308,10 +1358,15 @@ class _ArchivedProjectsSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  expanded ? AppIcons.chevronDown : AppIcons.chevronRight,
-                  size: 13,
-                  color: colors.textFaint,
+                SizedBox(
+                  width: AppMetrics.iconSize,
+                  child: Center(
+                    child: Icon(
+                      expanded ? AppIcons.chevronDown : AppIcons.chevronRight,
+                      size: 13,
+                      color: colors.textFaint,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: AppMetrics.unit),
                 Icon(AppIcons.archive, size: 14, color: colors.textFaint),
@@ -1370,13 +1425,9 @@ class _ArchivedProjectsSection extends StatelessWidget {
 }
 
 class _SidebarFooter extends StatelessWidget {
-  const _SidebarFooter({
-    required this.controller,
-    required this.navigationController,
-  });
+  const _SidebarFooter({required this.controller});
 
   final WorkspaceController controller;
-  final AppNavigationController navigationController;
 
   @override
   Widget build(BuildContext context) {
@@ -1409,12 +1460,17 @@ class _SidebarFooter extends StatelessWidget {
               Expanded(
                 child: ShadTooltip(
                   builder: (context) => const Text('新建项目组'),
-                  child: ShadButton.ghost(
+                  child: ShadButton.outline(
                     key: const ValueKey<String>('new-project-group-button'),
                     onPressed: () =>
                         ProjectManagement.showCreateGroup(context, controller),
                     height: 34,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppMetrics.unit * 2,
+                    ),
                     foregroundColor: colors.textMuted,
+                    backgroundColor: colors.surface,
+                    hoverBackgroundColor: colors.focusSoft,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -1424,20 +1480,6 @@ class _SidebarFooter extends StatelessWidget {
                       ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: AppMetrics.unit),
-              ShadTooltip(
-                builder: (context) => const Text('设置'),
-                child: ShadButton.ghost(
-                  key: const ValueKey<String>('sidebar-settings-entry'),
-                  onPressed: navigationController.goSettings,
-                  height: 34,
-                  width: 34,
-                  padding: EdgeInsets.zero,
-                  foregroundColor: colors.textMuted,
-                  hoverBackgroundColor: colors.focusSoft,
-                  child: const Icon(AppIcons.settings, size: 15),
                 ),
               ),
             ],

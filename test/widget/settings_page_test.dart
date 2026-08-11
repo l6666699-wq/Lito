@@ -12,9 +12,15 @@ import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/infrastructure/persistence/backup_service.dart';
 import 'package:litetodo/infrastructure/platform/data_directory_service.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
+import 'package:litetodo/presentation/settings/settings_about_section.dart';
+import 'package:litetodo/presentation/settings/settings_appearance_section.dart';
+import 'package:litetodo/presentation/settings/settings_data_section.dart';
+import 'package:litetodo/presentation/settings/settings_general_section.dart';
 import 'package:litetodo/presentation/settings/settings_page.dart';
 import 'package:litetodo/presentation/settings/settings_scope.dart';
 import 'package:litetodo/presentation/settings/settings_shared_controls.dart';
+import 'package:litetodo/presentation/settings/settings_typography_section.dart';
+import 'package:litetodo/presentation/settings/settings_window_section.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() {
@@ -57,15 +63,17 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('主题设置'), findsNWidgets(2));
-    expect(find.text('字体设置'), findsNWidgets(2));
-    expect(find.text('跨重启恢复完整与紧凑模式的位置和尺寸'), findsOneWidget);
+    expect(find.text('主题设置'), findsOneWidget);
+    expect(find.text('字体设置'), findsOneWidget);
+    expect(find.text('跨重启恢复完整与紧凑模式的位置和尺寸'), findsNothing);
     expect(find.text('当前会话内恢复各窗口模式的位置；跨重启位置保存尚未接入'), findsNothing);
     await settings.setAccentColorKey('purple');
     await settings.setFontScale(1.15);
     await tester.pump();
     expect(settings.accentColorKey, 'purple');
     expect(settings.fontScale, 1.15);
+    await tester.tap(find.byKey(const ValueKey<String>('settings-category-1')));
+    await tester.pump();
     await tester.tap(find.text('快速添加'));
     await tester.pump();
     expect(settings.defaultWindowMode, AppWindowMode.quickAdd);
@@ -187,6 +195,87 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'settings categories isolate the active module at wide and narrow sizes',
+    (tester) async {
+      final settings = SettingsController(
+        repository: InMemorySettingsRepository(),
+      );
+      await settings.initialize();
+      final window = WindowController(
+        desktopService: FakeDesktopWindowService(),
+      );
+      await window.initialize();
+      final workspace = WorkspaceController();
+      final backup = BackupService(
+        directory: Directory(
+          '${Directory.systemTemp.path}${Platform.pathSeparator}LiteTodo-settings-category-test',
+        ),
+      );
+      final directory = FakeDataDirectoryService();
+      addTearDown(() {
+        settings.dispose();
+        window.dispose();
+        workspace.dispose();
+      });
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      const sectionTypes = <Type>[
+        GeneralSettingsSection,
+        WindowSettingsSection,
+        AppearanceSettingsSection,
+        TypographySettingsSection,
+        DataSettingsSection,
+        AboutSettingsSection,
+      ];
+
+      Future<void> pumpAtSize(Size size) async {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(
+          ShadApp(
+            theme: AppTheme.lightFor(),
+            home: SettingsScope(
+              settingsController: settings,
+              backupService: backup,
+              workspaceController: workspace,
+              windowController: window,
+              dataDirectoryService: directory,
+              child: const SettingsPage(),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      for (final size in const [Size(1672, 941), Size(680, 860)]) {
+        await pumpAtSize(size);
+        for (var index = 0; index < sectionTypes.length; index++) {
+          final category = find.byKey(
+            ValueKey<String>('settings-category-$index'),
+          );
+          await tester.ensureVisible(category);
+          await tester.pump();
+          await tester.tap(category);
+          await tester.pump();
+
+          expect(find.byType(sectionTypes[index]), findsOneWidget);
+          expect(find.byType(SettingsCard), findsOneWidget);
+          for (var other = 0; other < sectionTypes.length; other++) {
+            final section = find.byKey(
+              ValueKey<String>('settings-section-$other'),
+              skipOffstage: false,
+            );
+            expect(tester.widget<Offstage>(section).offstage, other != index);
+            if (other != index) {
+              expect(find.byType(sectionTypes[other]), findsNothing);
+            }
+          }
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('settings P0 groups expose window, preview, and About controls', (
     tester,
   ) async {
@@ -239,8 +328,39 @@ void main() {
     expect(railRect.top, closeTo(62, 2));
     expect(firstCardRect.top, closeTo(railRect.top, 0.01));
     expect(firstCardRect.left - railRect.right, closeTo(24, 0.01));
+    expect(find.text('桌面与窗口'), findsOneWidget);
+    expect(find.text('关于 LiteTodo'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('settings-theme-preview-light-blue')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('settings-theme-preview-light-purple')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('settings-theme-preview-dark-blue')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('settings-theme-preview-system-blue')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('settings-window-reset-position')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('settings-category-1')));
+    await tester.pump();
     expect(find.text('桌面与窗口'), findsNWidgets(2));
-    expect(find.text('关于 LiteTodo'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('settings-window-reset-position')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('settings-category-2')));
+    await tester.pump();
     expect(
       find.byKey(const ValueKey<String>('settings-theme-preview-light-blue')),
       findsOneWidget,
@@ -257,10 +377,6 @@ void main() {
       find.byKey(const ValueKey<String>('settings-theme-preview-system-blue')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey<String>('settings-window-reset-position')),
-      findsOneWidget,
-    );
 
     final purplePreview = find.byKey(
       const ValueKey<String>('settings-theme-preview-light-purple'),
@@ -271,6 +387,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(settings.themeMode, AppThemeMode.light);
     expect(settings.accentColorKey, 'purple');
+
+    await tester.tap(find.byKey(const ValueKey<String>('settings-category-5')));
+    await tester.pump();
+    expect(find.text('关于 LiteTodo'), findsOneWidget);
 
     for (var index = 0; index < 6; index++) {
       final itemFinder = find.byKey(
@@ -345,7 +465,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('数据与备份'), findsWidgets);
-      final dataRect = tester.getRect(find.byType(SettingsCard).at(4));
+      final dataRect = tester.getRect(find.byType(SettingsCard).first);
       expect(dataRect.top, lessThan(941));
       expect(dataRect.bottom, greaterThan(0));
 
@@ -357,7 +477,7 @@ void main() {
       await tester.tap(aboutCategory);
       await tester.pumpAndSettle();
       expect(find.text('关于 LiteTodo'), findsOneWidget);
-      final aboutRect = tester.getRect(find.byType(SettingsCard).at(5));
+      final aboutRect = tester.getRect(find.byType(SettingsCard).first);
       expect(aboutRect.top, lessThan(941));
       expect(aboutRect.bottom, greaterThan(0));
       expect(tester.takeException(), isNull);

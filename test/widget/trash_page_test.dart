@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:litetodo/app/litetodo_app.dart';
+import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/application/app_navigation_controller.dart';
 import 'package:litetodo/application/quick_add_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
@@ -62,6 +63,22 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('本次运行期间可使用 Ctrl+Z 撤销'), findsOneWidget);
+    final descriptionRect = tester.getRect(
+      find.byKey(const ValueKey<String>('trash-clear-confirm-description')),
+    );
+    final cancelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('trash-clear-cancel')),
+    );
+    final confirmRect = tester.getRect(
+      find.byKey(const ValueKey<String>('trash-clear-confirm')),
+    );
+    final actionTop = cancelRect.top < confirmRect.top
+        ? cancelRect.top
+        : confirmRect.top;
+    expect(
+      actionTop - descriptionRect.bottom,
+      greaterThanOrEqualTo(AppMetrics.unit * 4 - 1),
+    );
     await tester.tap(find.byKey(const ValueKey<String>('trash-clear-cancel')));
     await tester.pumpAndSettle();
     expect(controller.trash, isNotEmpty);

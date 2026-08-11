@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
+import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/domain/models/app_data.dart';
 import 'package:litetodo/infrastructure/persistence/app_data_repository.dart';
@@ -249,6 +250,40 @@ void main() {
     ]) {
       await pumpHome(tester, WorkspaceController(), size: size);
       expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('todo surface keeps a balanced frame for data and empty states', (
+    tester,
+  ) async {
+    for (final size in const <Size>[
+      Size(1672, 941),
+      Size(860, 620),
+      Size(680, 460),
+    ]) {
+      final controller = WorkspaceController();
+      await pumpHome(tester, controller, size: size);
+      final dataRect = tester.getRect(
+        find.byKey(const ValueKey<String>('home-content-card')),
+      );
+      expect(dataRect.left, closeTo(AppMetrics.unit * 3, .5));
+      expect(dataRect.top, closeTo(AppMetrics.unit * 3, .5));
+      expect(dataRect.right, closeTo(size.width - AppMetrics.unit * 3, .5));
+      expect(dataRect.bottom, closeTo(size.height - AppMetrics.unit * 3, .5));
+
+      for (final root
+          in controller.todos.where((todo) => todo.parentId == null).toList()) {
+        controller.deleteTodo(root.id);
+      }
+      await tester.pump();
+      expect(find.text('没有可见待办'), findsOneWidget);
+      final emptyRect = tester.getRect(
+        find.byKey(const ValueKey<String>('home-content-card')),
+      );
+      expect(emptyRect.left, closeTo(dataRect.left, .5));
+      expect(emptyRect.top, closeTo(dataRect.top, .5));
+      expect(emptyRect.right, closeTo(dataRect.right, .5));
+      expect(emptyRect.bottom, closeTo(dataRect.bottom, .5));
     }
   });
 

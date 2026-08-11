@@ -169,12 +169,9 @@ class _HomePageState extends State<HomePage> {
             ? count - completedCount
             : 0;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            0,
-            0,
-            AppMetrics.unit * 3,
-            AppMetrics.unit * 3,
-          ),
+          // Keep the content surface inset evenly from the route viewport so
+          // its border and radius read as one frame in every window size.
+          padding: const EdgeInsets.all(AppMetrics.unit * 3),
           child: DecoratedBox(
             key: const ValueKey<String>('home-content-card'),
             decoration: BoxDecoration(
@@ -189,49 +186,53 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HomeHeader(
-                  title: title,
-                  count: count,
-                  datasetLabel: controller.datasetLabel,
-                  visibleCount: rows.length,
-                  completedCount: completedCount,
-                  incompleteCount: incompleteCount,
-                  filter: _filter,
-                  sort: _sort,
-                  onFilterChanged: (value) => setState(() => _filter = value),
-                  onAdd: () => _openComposer(),
-                  onExpandAll: _expandAll,
-                  showFilterPanel: _showFilterPanel,
-                  onToggleFilterPanel: () =>
-                      setState(() => _showFilterPanel = !_showFilterPanel),
-                ),
-                if (_showFilterPanel)
-                  _FilterSortPanel(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppMetrics.shellCardRadius),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _HomeHeader(
+                    title: title,
+                    count: count,
+                    datasetLabel: controller.datasetLabel,
+                    visibleCount: rows.length,
+                    completedCount: completedCount,
+                    incompleteCount: incompleteCount,
                     filter: _filter,
                     sort: _sort,
                     onFilterChanged: (value) => setState(() => _filter = value),
-                    onSortChanged: (value) => setState(() => _sort = value),
+                    onAdd: () => _openComposer(),
+                    onExpandAll: _expandAll,
+                    showFilterPanel: _showFilterPanel,
+                    onToggleFilterPanel: () =>
+                        setState(() => _showFilterPanel = !_showFilterPanel),
                   ),
-                Expanded(
-                  child: TodoList(
-                    controller: controller,
-                    rows: rows,
-                    composerVisible: _composerVisible,
-                    composerParentId: _composerParentId,
-                    onComposerSubmit: _submitComposer,
-                    onComposerCancel: _closeComposer,
-                    onRequestAddChild: _openComposer,
-                    onRequestAddSibling: _openComposer,
-                    composerError: _composerError,
-                    emptyLabel: _filter == _HomeFilter.completed
-                        ? '没有已完成待办'
-                        : '没有可见待办',
+                  if (_showFilterPanel)
+                    _FilterSortPanel(
+                      filter: _filter,
+                      sort: _sort,
+                      onFilterChanged: (value) =>
+                          setState(() => _filter = value),
+                      onSortChanged: (value) => setState(() => _sort = value),
+                    ),
+                  Expanded(
+                    child: TodoList(
+                      controller: controller,
+                      rows: rows,
+                      composerVisible: _composerVisible,
+                      composerParentId: _composerParentId,
+                      onComposerSubmit: _submitComposer,
+                      onComposerCancel: _closeComposer,
+                      onRequestAddChild: _openComposer,
+                      onRequestAddSibling: _openComposer,
+                      composerError: _composerError,
+                      emptyLabel: _filter == _HomeFilter.completed
+                          ? '没有已完成待办'
+                          : '没有可见待办',
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

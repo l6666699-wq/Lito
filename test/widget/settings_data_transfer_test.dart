@@ -196,6 +196,13 @@ Future<void> _pumpSettings(
     ),
   );
   await tester.pump(const Duration(milliseconds: 300));
+  final dataCategory = find.byKey(
+    const ValueKey<String>('settings-category-4'),
+  );
+  if (dataCategory.evaluate().isNotEmpty) {
+    await tester.tap(dataCategory);
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _scrollTo(WidgetTester tester, Finder finder) async {

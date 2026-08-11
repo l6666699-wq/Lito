@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'package:litetodo/app/litetodo_app.dart';
 import 'package:litetodo/application/app_navigation_controller.dart';
@@ -13,6 +14,8 @@ import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
 import 'package:litetodo/icons/app_icons.dart';
+import 'package:litetodo/icons/project_icon.dart';
+import 'package:litetodo/app/theme/project_palette.dart';
 import 'package:litetodo/presentation/settings/settings_scope.dart';
 
 void main() {
@@ -230,5 +233,137 @@ void main() {
       AppColors.darkScheme.surface,
     );
     expect(await update, isTrue);
+  });
+
+  testWidgets(
+    'sidebar scope states use theme accent while projects keep color',
+    (tester) async {
+      final workspace = WorkspaceController();
+      final navigation = AppNavigationController();
+      await tester.pumpWidget(
+        LiteTodoApp(controller: workspace, navigationController: navigation),
+      );
+      await tester.pumpAndSettle();
+
+      final scopeKey = const ValueKey<String>('scope-收集箱');
+      final scopeFinder = find.byKey(scopeKey);
+      workspace.selectInbox();
+      await tester.pump();
+      final scopeContainer = find
+          .descendant(of: scopeFinder, matching: find.byType(Container))
+          .last;
+      final scopeContext = tester.element(scopeFinder);
+      final colors = AppColors.of(scopeContext);
+      final scopeDecoration =
+          tester.widget<Container>(scopeContainer).decoration! as BoxDecoration;
+      expect(scopeDecoration.color, colors.focusSoft);
+      final scopeIcon = find
+          .descendant(of: scopeFinder, matching: find.byType(Icon))
+          .first;
+      expect(tester.widget<Icon>(scopeIcon).color, colors.focus);
+
+      final project = workspace.projects.first;
+      workspace.selectProject(project.id);
+      await tester.pump();
+      final projectFinder = find.byKey(
+        ValueKey<String>('project-${project.id}'),
+      );
+      final projectContainers = find
+          .descendant(of: projectFinder, matching: find.byType(Container))
+          .evaluate()
+          .map((element) => element.widget)
+          .whereType<Container>()
+          .toList(growable: false);
+      final projectDecoration = projectContainers
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .firstWhere((decoration) => decoration.color != null);
+      expect(
+        projectDecoration.color,
+        ProjectPalette.resolve(project.colorKey).softBackground,
+      );
+      final projectIcon = find
+          .descendant(of: projectFinder, matching: find.byType(ProjectIcon))
+          .first;
+      expect(projectIcon, findsOneWidget);
+    },
+  );
+
+  testWidgets('search field and shortcut chip share a centered text baseline', (
+    tester,
+  ) async {
+    await tester.pumpWidget(LiteTodoApp(controller: WorkspaceController()));
+    await tester.pumpAndSettle();
+
+    final box = tester.getRect(
+      find.byKey(const ValueKey<String>('shell-search-box')),
+    );
+    final input = tester.getRect(
+      find.byKey(const ValueKey<String>('shell-search-field')),
+    );
+    final placeholder = tester.getRect(
+      find.byKey(const ValueKey<String>('shell-search-placeholder')),
+    );
+    final shortcut = tester.getRect(
+      find.byKey(const ValueKey<String>('shell-search-shortcut')),
+    );
+    expect(input.top, greaterThan(box.top));
+    expect(input.bottom, lessThan(box.bottom));
+    expect(
+      (input.center.dy - placeholder.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+    expect(input.left, closeTo(placeholder.left, 1));
+    expect(shortcut.height, closeTo(22, 1));
+    expect(shortcut.left - input.right, greaterThanOrEqualTo(AppMetrics.unit));
+  });
+
+  testWidgets(
+    'sidebar footer keeps a bordered create button without settings entry',
+    (tester) async {
+      await tester.pumpWidget(LiteTodoApp(controller: WorkspaceController()));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<ShadButton>(
+        find.byKey(const ValueKey<String>('new-project-group-button')),
+      );
+      expect(button.variant, ShadButtonVariant.outline);
+      expect(
+        find.byKey(const ValueKey<String>('sidebar-settings-entry')),
+        findsNothing,
+      );
+      final rect = tester.getRect(
+        find.byKey(const ValueKey<String>('new-project-group-button')),
+      );
+      // Outline buttons include their one-pixel border on each edge.
+      expect(rect.height, closeTo(36, 1));
+      expect(rect.left, greaterThanOrEqualTo(AppMetrics.unit * 2));
+      expect(rect.right, lessThanOrEqualTo(267 - AppMetrics.unit * 2));
+    },
+  );
+
+  testWidgets('project group arrow keeps a stable gap before its icon', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    await tester.pumpWidget(LiteTodoApp(controller: workspace));
+    await tester.pumpAndSettle();
+
+    final groupFinder = find.byKey(
+      ValueKey<String>('project-group-${workspace.groups.first.id}'),
+    );
+    final arrowRect = tester.getRect(
+      find.descendant(
+        of: groupFinder,
+        matching: find.byIcon(AppIcons.chevronDown),
+      ),
+    );
+    final iconRect = tester.getRect(
+      find.descendant(of: groupFinder, matching: find.byType(ProjectIcon)),
+    );
+    expect(
+      iconRect.left - arrowRect.right,
+      greaterThanOrEqualTo(AppMetrics.unit),
+    );
   });
 }

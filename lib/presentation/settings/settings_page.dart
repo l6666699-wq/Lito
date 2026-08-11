@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/widgets.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
@@ -64,15 +65,30 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _selectSection(int index) {
+    if (index < 0 ||
+        index >= _sectionKeys.length ||
+        index == _selectedSection) {
+      return;
+    }
+    final previousOffset = _scrollController.hasClients
+        ? _scrollController.offset
+        : null;
     setState(() => _selectedSection = index);
-    final target = _sectionKeys[index].currentContext;
-    if (target != null) {
-      Scrollable.ensureVisible(
-        target,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        alignment: .04,
-      );
+    // Changing the active category swaps the content in place. Keep the
+    // existing page position when the newly selected module has a shorter
+    // scroll extent; the controller will clamp only when that extent requires
+    // it, rather than jumping back to the top on every category change.
+    if (previousOffset != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final position = _scrollController.position;
+        final offset = previousOffset
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+        if ((position.pixels - offset).abs() > precisionErrorTolerance) {
+          _scrollController.jumpTo(offset);
+        }
+      });
     }
   }
 
@@ -457,104 +473,93 @@ class _SettingsPageState extends State<SettingsPage> {
     bool canEdit,
   ) {
     final hotkeyController = _hotkeyControllerFor(settings.globalHotkey);
+    final sectionWidgets = <Widget>[
+      GeneralSettingsSection(
+        settings: settings,
+        colors: colors,
+        canEdit: canEdit,
+        hotkeyController: hotkeyController,
+        onLaunchAtStartup: (value) => _setLaunchAtStartup(scope, value),
+        onStartHidden: (value) => _setStartHidden(scope, value),
+        onCloseToTray: (value) => _setCloseToTray(scope, value),
+        onWindowMode: (value) => _setWindowMode(scope, value),
+        onHotkeyEnabled: (value) => _setGlobalHotkeyEnabled(scope, value),
+        onHotkeySubmitted: (value) => _setHotkey(scope, value),
+        onRememberWindowPosition: (value) =>
+            _setRememberWindowPosition(scope, value),
+        onCompactAlwaysOnTop: (value) => _setCompactAlwaysOnTop(scope, value),
+        onCompactSkipTaskbar: (value) => _setCompactSkipTaskbar(scope, value),
+        onLockCompactPosition: (value) => _setLockCompactPosition(scope, value),
+        onResetWindowPosition: () => _resetWindowPosition(scope),
+        crossRestartGeometryAvailable:
+            scope.settingsController.supportsCrossRestartWindowGeometry,
+        includeWindowSettings: false,
+      ),
+      WindowSettingsSection(
+        settings: settings,
+        colors: colors,
+        canEdit: canEdit,
+        onWindowMode: (value) => _setWindowMode(scope, value),
+        onRememberWindowPosition: (value) =>
+            _setRememberWindowPosition(scope, value),
+        onCompactAlwaysOnTop: (value) => _setCompactAlwaysOnTop(scope, value),
+        onCompactSkipTaskbar: (value) => _setCompactSkipTaskbar(scope, value),
+        onLockCompactPosition: (value) => _setLockCompactPosition(scope, value),
+        onResetWindowPosition: () => _resetWindowPosition(scope),
+        crossRestartGeometryAvailable:
+            scope.settingsController.supportsCrossRestartWindowGeometry,
+      ),
+      AppearanceSettingsSection(
+        scope: scope,
+        settings: settings,
+        colors: colors,
+        canEdit: canEdit,
+      ),
+      TypographySettingsSection(
+        scope: scope,
+        settings: settings,
+        colors: colors,
+        canEdit: canEdit,
+      ),
+      DataSettingsSection(
+        scope: scope,
+        settings: settings,
+        colors: colors,
+        canEdit: canEdit,
+        backupFuture: _backupsFuture ??= scope.backupService.listBackups(),
+        backupInProgress: _backupInProgress,
+        onOpenDirectory: () => _openDirectory(scope),
+        onCreateBackup: () => _createBackup(scope),
+        dataTransferAvailable: scope.dataTransferController != null,
+        dataTransferBusy: _dataTransferBusy,
+        dataTransferStatus: _dataTransferStatus,
+        dataTransferStatusIsError: _dataTransferStatusIsError,
+        onExportData: scope.dataTransferController == null
+            ? null
+            : () => _exportData(scope),
+        onImportData: scope.dataTransferController == null
+            ? null
+            : () => _importData(context, scope),
+        recoveryWarning:
+            scope.workspaceController.recoveryWarning == null ||
+                _workspaceRecoveryDismissed
+            ? null
+            : '数据恢复提示：${scope.workspaceController.recoveryWarning}',
+        onDismissRecoveryWarning: () =>
+            setState(() => _workspaceRecoveryDismissed = true),
+      ),
+      const AboutSettingsSection(),
+    ];
     return [
-      KeyedSubtree(
-        key: _sectionKeys[0],
-        child: GeneralSettingsSection(
-          settings: settings,
-          colors: colors,
-          canEdit: canEdit,
-          hotkeyController: hotkeyController,
-          onLaunchAtStartup: (value) => _setLaunchAtStartup(scope, value),
-          onStartHidden: (value) => _setStartHidden(scope, value),
-          onCloseToTray: (value) => _setCloseToTray(scope, value),
-          onWindowMode: (value) => _setWindowMode(scope, value),
-          onHotkeyEnabled: (value) => _setGlobalHotkeyEnabled(scope, value),
-          onHotkeySubmitted: (value) => _setHotkey(scope, value),
-          onRememberWindowPosition: (value) =>
-              _setRememberWindowPosition(scope, value),
-          onCompactAlwaysOnTop: (value) => _setCompactAlwaysOnTop(scope, value),
-          onCompactSkipTaskbar: (value) => _setCompactSkipTaskbar(scope, value),
-          onLockCompactPosition: (value) =>
-              _setLockCompactPosition(scope, value),
-          onResetWindowPosition: () => _resetWindowPosition(scope),
-          crossRestartGeometryAvailable:
-              scope.settingsController.supportsCrossRestartWindowGeometry,
-          includeWindowSettings: false,
+      for (var index = 0; index < sectionWidgets.length; index++)
+        Offstage(
+          key: ValueKey<String>('settings-section-$index'),
+          offstage: index != _selectedSection,
+          child: KeyedSubtree(
+            key: _sectionKeys[index],
+            child: sectionWidgets[index],
+          ),
         ),
-      ),
-      const SizedBox(height: AppMetrics.unit * 4),
-      KeyedSubtree(
-        key: _sectionKeys[1],
-        child: WindowSettingsSection(
-          settings: settings,
-          colors: colors,
-          canEdit: canEdit,
-          onWindowMode: (value) => _setWindowMode(scope, value),
-          onRememberWindowPosition: (value) =>
-              _setRememberWindowPosition(scope, value),
-          onCompactAlwaysOnTop: (value) => _setCompactAlwaysOnTop(scope, value),
-          onCompactSkipTaskbar: (value) => _setCompactSkipTaskbar(scope, value),
-          onLockCompactPosition: (value) =>
-              _setLockCompactPosition(scope, value),
-          onResetWindowPosition: () => _resetWindowPosition(scope),
-          crossRestartGeometryAvailable:
-              scope.settingsController.supportsCrossRestartWindowGeometry,
-        ),
-      ),
-      const SizedBox(height: AppMetrics.unit * 4),
-      KeyedSubtree(
-        key: _sectionKeys[2],
-        child: AppearanceSettingsSection(
-          scope: scope,
-          settings: settings,
-          colors: colors,
-          canEdit: canEdit,
-        ),
-      ),
-      const SizedBox(height: AppMetrics.unit * 4),
-      KeyedSubtree(
-        key: _sectionKeys[3],
-        child: TypographySettingsSection(
-          scope: scope,
-          settings: settings,
-          colors: colors,
-          canEdit: canEdit,
-        ),
-      ),
-      const SizedBox(height: AppMetrics.unit * 4),
-      KeyedSubtree(
-        key: _sectionKeys[4],
-        child: DataSettingsSection(
-          scope: scope,
-          settings: settings,
-          colors: colors,
-          canEdit: canEdit,
-          backupFuture: _backupsFuture ??= scope.backupService.listBackups(),
-          backupInProgress: _backupInProgress,
-          onOpenDirectory: () => _openDirectory(scope),
-          onCreateBackup: () => _createBackup(scope),
-          dataTransferAvailable: scope.dataTransferController != null,
-          dataTransferBusy: _dataTransferBusy,
-          dataTransferStatus: _dataTransferStatus,
-          dataTransferStatusIsError: _dataTransferStatusIsError,
-          onExportData: scope.dataTransferController == null
-              ? null
-              : () => _exportData(scope),
-          onImportData: scope.dataTransferController == null
-              ? null
-              : () => _importData(context, scope),
-          recoveryWarning:
-              scope.workspaceController.recoveryWarning == null ||
-                  _workspaceRecoveryDismissed
-              ? null
-              : '数据恢复提示：${scope.workspaceController.recoveryWarning}',
-          onDismissRecoveryWarning: () =>
-              setState(() => _workspaceRecoveryDismissed = true),
-        ),
-      ),
-      const SizedBox(height: AppMetrics.unit * 4),
-      KeyedSubtree(key: _sectionKeys[5], child: const AboutSettingsSection()),
     ];
   }
 

@@ -191,7 +191,14 @@ class _TrashPageState extends State<TrashPage> {
       builder: (context) => ShadDialog.alert(
         key: const ValueKey<String>('trash-clear-confirm-dialog'),
         title: const Text('清空回收站？'),
-        description: const Text('回收站中的 Todo 和项目将被移除，本次运行期间可使用 Ctrl+Z 撤销。'),
+        description: const Text(
+          '回收站中的 Todo 和项目将被移除，本次运行期间可使用 Ctrl+Z 撤销。',
+          key: ValueKey<String>('trash-clear-confirm-description'),
+        ),
+        // Keep the warning copy and action row visually distinct even when
+        // the responsive dialog stacks its buttons at the narrow breakpoint.
+        gap: AppMetrics.unit * 4,
+        actionsGap: AppMetrics.unit * 2,
         actions: [
           ShadButton.ghost(
             key: const ValueKey<String>('trash-clear-cancel'),

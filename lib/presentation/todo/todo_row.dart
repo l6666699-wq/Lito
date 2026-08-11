@@ -236,7 +236,7 @@ class _TodoRowState extends State<TodoRow> {
                             )
                           : null,
                       borderRadius: BorderRadius.circular(
-                        AppMetrics.smallRadius,
+                        widget.isRoot ? 0 : AppMetrics.smallRadius,
                       ),
                     ),
                     child: _editing
