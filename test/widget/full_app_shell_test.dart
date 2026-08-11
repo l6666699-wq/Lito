@@ -304,18 +304,83 @@ void main() {
     final placeholder = tester.getRect(
       find.byKey(const ValueKey<String>('shell-search-placeholder')),
     );
+    final searchIcon = tester.getRect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('shell-search-box')),
+        matching: find.byIcon(AppIcons.search),
+      ),
+    );
     final shortcut = tester.getRect(
       find.byKey(const ValueKey<String>('shell-search-shortcut')),
     );
     expect(input.top, greaterThan(box.top));
     expect(input.bottom, lessThan(box.bottom));
+    expect(input.height, closeTo(18, 1));
     expect(
       (input.center.dy - placeholder.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+    expect((input.center.dy - box.center.dy).abs(), lessThanOrEqualTo(1));
+    expect(
+      (input.center.dy - searchIcon.center.dy).abs(),
       lessThanOrEqualTo(1),
     );
     expect(input.left, closeTo(placeholder.left, 1));
     expect(shortcut.height, closeTo(22, 1));
     expect(shortcut.left - input.right, greaterThanOrEqualTo(AppMetrics.unit));
+  });
+
+  testWidgets('typed search line stays centered and keeps the shortcut right', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    addTearDown(workspace.dispose);
+    await tester.pumpWidget(LiteTodoApp(controller: workspace));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('shell-search-field')),
+      '123',
+    );
+    await tester.pump();
+
+    expect(workspace.searchQuery, '123');
+    expect(
+      find.byKey(const ValueKey<String>('shell-search-placeholder')),
+      findsNothing,
+    );
+
+    final box = tester.getRect(
+      find.byKey(const ValueKey<String>('shell-search-box')),
+    );
+    final inputFinder = find.byKey(
+      const ValueKey<String>('shell-search-field'),
+    );
+    final input = tester.getRect(inputFinder);
+    final searchIcon = tester.getRect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('shell-search-box')),
+        matching: find.byIcon(AppIcons.search),
+      ),
+    );
+    final shortcut = tester.getRect(
+      find.byKey(const ValueKey<String>('shell-search-shortcut')),
+    );
+    final editable = tester.widget<EditableText>(inputFinder);
+
+    expect(editable.controller.text, '123');
+    expect(editable.strutStyle.forceStrutHeight, isTrue);
+    expect(editable.strutStyle.height, closeTo(1.5, .01));
+    expect(input.top, greaterThan(box.top));
+    expect(input.bottom, lessThan(box.bottom));
+    expect(input.height, closeTo(18, 1));
+    expect((input.center.dy - box.center.dy).abs(), lessThanOrEqualTo(1));
+    expect(
+      (input.center.dy - searchIcon.center.dy).abs(),
+      lessThanOrEqualTo(1),
+    );
+    expect(shortcut.right, closeTo(box.right - AppMetrics.unit * 2, 1));
+    expect(shortcut.left, greaterThan(input.right));
   });
 
   testWidgets(

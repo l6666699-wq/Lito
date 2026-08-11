@@ -48,83 +48,110 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return ShadDialog(
-      key: const ValueKey<String>('project-editor-dialog'),
-      title: _EditorDialogHeader(
-        title: _editing ? '编辑项目' : '新建项目',
-        description: '名称、颜色、图标和所属分组可以随时调整。',
-        iconKey: _iconKey,
-        colorKey: _colorKey,
-      ),
-      backgroundColor: colors.surface,
-      border: Border.all(color: colors.borderStrong),
-      padding: const EdgeInsets.all(AppMetrics.unit * 5),
-      gap: AppMetrics.unit * 2,
-      constraints: BoxConstraints(
-        minWidth: 360,
-        maxWidth: 560,
-        maxHeight: _editorMaxHeight(context),
-      ),
-      scrollable: true,
-      actionsGap: AppMetrics.unit * 2,
-      actions: [
-        ShadButton.ghost(
-          key: const ValueKey<String>('project-editor-cancel'),
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
-        ),
-        ShadButton(
-          key: const ValueKey<String>('project-editor-save'),
-          onPressed: _save,
-          child: Text(_editing ? '保存' : '创建'),
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _FieldLabel(label: '项目名称'),
-          const SizedBox(height: AppMetrics.unit),
-          ShadInput(
-            key: const ValueKey<String>('project-name-input'),
-            controller: _nameController,
-            autofocus: !_editing,
-            placeholder: const Text('例如：个人成长'),
-            onSubmitted: (_) => _save(),
+    return Center(
+      child: SizedBox(
+        key: const ValueKey<String>('project-editor-dialog-card'),
+        width: 520,
+        child: ShadDialog(
+          key: const ValueKey<String>('project-editor-dialog'),
+          title: _EditorDialogHeader(
+            title: _editing ? '编辑项目' : '新建项目',
+            description: '名称、颜色、图标和所属分组可以随时调整。',
+            iconKey: _iconKey,
+            colorKey: _colorKey,
           ),
-          const SizedBox(height: AppMetrics.unit * 2.5),
-          const _FieldLabel(label: '所属分组'),
-          const SizedBox(height: AppMetrics.unit),
-          _GroupSelector(
-            controller: widget.controller,
-            value: _groupId,
-            expanded: _showGroups,
-            onToggle: () => setState(() => _showGroups = !_showGroups),
-            onChanged: (value) => setState(() {
-              _groupId = value;
-              _showGroups = false;
-            }),
+          closeIcon: Semantics(
+            button: true,
+            label: 'project-editor-close',
+            child: ShadIconButton.ghost(
+              key: const ValueKey<String>('project-editor-close'),
+              icon: const Icon(AppIcons.windowClose, size: 15),
+              width: 26,
+              height: 26,
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
           ),
-          const SizedBox(height: AppMetrics.unit * 2.5),
-          const _FieldLabel(label: '项目颜色'),
-          const SizedBox(height: AppMetrics.unit),
-          _PalettePicker(
-            value: _colorKey,
-            onChanged: (value) => setState(() => _colorKey = value),
+          backgroundColor: colors.surface,
+          border: Border.all(color: colors.borderStrong),
+          radius: BorderRadius.circular(AppMetrics.cardRadius),
+          removeBorderRadiusWhenTiny: false,
+          padding: const EdgeInsets.fromLTRB(
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 4.5,
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 3,
           ),
-          const SizedBox(height: AppMetrics.unit * 2.5),
-          ProjectIconPicker(
-            value: _iconKey,
-            onChanged: (value) => setState(() => _iconKey = value),
+          gap: AppMetrics.unit * 2.5,
+          constraints: BoxConstraints(
+            minWidth: 400,
+            maxWidth: 520,
+            maxHeight: _editorMaxHeight(context),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: AppMetrics.unit * 2),
-            _EditorError(
-              key: const ValueKey<String>('project-editor-error'),
-              message: _error!,
-              colors: colors,
+          scrollable: true,
+          titlePinned: true,
+          actionsPinned: true,
+          actionsGap: AppMetrics.unit * 2,
+          actions: [
+            ShadButton.ghost(
+              key: const ValueKey<String>('project-editor-cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            ShadButton(
+              key: const ValueKey<String>('project-editor-save'),
+              onPressed: _save,
+              child: Text(_editing ? '保存' : '创建'),
             ),
           ],
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _FieldLabel(label: '项目名称'),
+              const SizedBox(height: AppMetrics.unit),
+              ShadInput(
+                key: const ValueKey<String>('project-name-input'),
+                controller: _nameController,
+                autofocus: !_editing,
+                placeholder: const Text('例如：个人成长'),
+                onSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: AppMetrics.unit * 2.5),
+              const _FieldLabel(label: '所属分组'),
+              const SizedBox(height: AppMetrics.unit),
+              _GroupSelector(
+                controller: widget.controller,
+                value: _groupId,
+                expanded: _showGroups,
+                onToggle: () => setState(() => _showGroups = !_showGroups),
+                onChanged: (value) => setState(() {
+                  _groupId = value;
+                  _showGroups = false;
+                }),
+              ),
+              const SizedBox(height: AppMetrics.unit * 2.5),
+              const _FieldLabel(label: '项目颜色'),
+              const SizedBox(height: AppMetrics.unit),
+              _PalettePicker(
+                value: _colorKey,
+                onChanged: (value) => setState(() => _colorKey = value),
+              ),
+              const SizedBox(height: AppMetrics.unit * 2.5),
+              ProjectIconPicker(
+                value: _iconKey,
+                onChanged: (value) => setState(() => _iconKey = value),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: AppMetrics.unit * 2),
+                _EditorError(
+                  key: const ValueKey<String>('project-editor-error'),
+                  message: _error!,
+                  colors: colors,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -195,69 +222,96 @@ class _ProjectGroupEditorDialogState extends State<ProjectGroupEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return ShadDialog(
-      key: const ValueKey<String>('project-group-editor-dialog'),
-      title: _EditorDialogHeader(
-        title: _editing ? '编辑项目组' : '新建项目组',
-        description: '将相关项目放在一起，侧栏可以折叠分组。',
-        iconKey: _iconKey,
-        colorKey: _colorKey,
-      ),
-      backgroundColor: colors.surface,
-      border: Border.all(color: colors.borderStrong),
-      padding: const EdgeInsets.all(AppMetrics.unit * 5),
-      gap: AppMetrics.unit * 2,
-      constraints: BoxConstraints(
-        minWidth: 360,
-        maxWidth: 560,
-        maxHeight: _editorMaxHeight(context),
-      ),
-      scrollable: true,
-      actionsGap: AppMetrics.unit * 2,
-      actions: [
-        ShadButton.ghost(
-          key: const ValueKey<String>('project-group-editor-cancel'),
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
-        ),
-        ShadButton(
-          key: const ValueKey<String>('project-group-editor-save'),
-          onPressed: _save,
-          child: Text(_editing ? '保存' : '创建'),
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _FieldLabel(label: '项目组名称'),
-          const SizedBox(height: AppMetrics.unit),
-          ShadInput(
-            key: const ValueKey<String>('project-group-name-input'),
-            controller: _nameController,
-            autofocus: !_editing,
-            placeholder: const Text('例如：工作'),
+    return Center(
+      child: SizedBox(
+        key: const ValueKey<String>('project-group-editor-dialog-card'),
+        width: 520,
+        child: ShadDialog(
+          key: const ValueKey<String>('project-group-editor-dialog'),
+          title: _EditorDialogHeader(
+            title: _editing ? '编辑项目组' : '新建项目组',
+            description: '将相关项目放在一起，侧栏可以折叠分组。',
+            iconKey: _iconKey,
+            colorKey: _colorKey,
           ),
-          const SizedBox(height: AppMetrics.unit * 2.5),
-          const _FieldLabel(label: '项目组颜色'),
-          const SizedBox(height: AppMetrics.unit),
-          _PalettePicker(
-            value: _colorKey,
-            onChanged: (value) => setState(() => _colorKey = value),
+          closeIcon: Semantics(
+            button: true,
+            label: 'project-group-editor-close',
+            child: ShadIconButton.ghost(
+              key: const ValueKey<String>('project-group-editor-close'),
+              icon: const Icon(AppIcons.windowClose, size: 15),
+              width: 26,
+              height: 26,
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
           ),
-          const SizedBox(height: AppMetrics.unit * 2.5),
-          ProjectIconPicker(
-            value: _iconKey,
-            onChanged: (value) => setState(() => _iconKey = value),
+          backgroundColor: colors.surface,
+          border: Border.all(color: colors.borderStrong),
+          radius: BorderRadius.circular(AppMetrics.cardRadius),
+          removeBorderRadiusWhenTiny: false,
+          padding: const EdgeInsets.fromLTRB(
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 4.5,
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 3,
           ),
-          if (_error != null) ...[
-            const SizedBox(height: AppMetrics.unit * 2),
-            _EditorError(
-              key: const ValueKey<String>('project-group-editor-error'),
-              message: _error!,
-              colors: colors,
+          gap: AppMetrics.unit * 2.5,
+          constraints: BoxConstraints(
+            minWidth: 400,
+            maxWidth: 520,
+            maxHeight: _editorMaxHeight(context),
+          ),
+          scrollable: true,
+          titlePinned: true,
+          actionsPinned: true,
+          actionsGap: AppMetrics.unit * 2,
+          actions: [
+            ShadButton.ghost(
+              key: const ValueKey<String>('project-group-editor-cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            ShadButton(
+              key: const ValueKey<String>('project-group-editor-save'),
+              onPressed: _save,
+              child: Text(_editing ? '保存' : '创建'),
             ),
           ],
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _FieldLabel(label: '项目组名称'),
+              const SizedBox(height: AppMetrics.unit),
+              ShadInput(
+                key: const ValueKey<String>('project-group-name-input'),
+                controller: _nameController,
+                autofocus: !_editing,
+                placeholder: const Text('例如：工作'),
+              ),
+              const SizedBox(height: AppMetrics.unit * 2.5),
+              const _FieldLabel(label: '项目组颜色'),
+              const SizedBox(height: AppMetrics.unit),
+              _PalettePicker(
+                value: _colorKey,
+                onChanged: (value) => setState(() => _colorKey = value),
+              ),
+              const SizedBox(height: AppMetrics.unit * 2.5),
+              ProjectIconPicker(
+                value: _iconKey,
+                onChanged: (value) => setState(() => _iconKey = value),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: AppMetrics.unit * 2),
+                _EditorError(
+                  key: const ValueKey<String>('project-group-editor-error'),
+                  message: _error!,
+                  colors: colors,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -323,15 +377,15 @@ class _EditorDialogHeader extends StatelessWidget {
             border: Border.all(color: palette.border),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(AppMetrics.unit * 2.5),
+            padding: const EdgeInsets.all(AppMetrics.unit * 2),
             child: ProjectIcon(
               iconKey: iconKey,
               color: palette.accent,
-              size: 23,
+              size: 21,
             ),
           ),
         ),
-        const SizedBox(width: AppMetrics.unit * 2.5),
+        const SizedBox(width: AppMetrics.unit * 2),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: AppMetrics.unit * .5),

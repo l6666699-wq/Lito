@@ -510,6 +510,10 @@ class _SearchField extends StatefulWidget {
 }
 
 class _SearchFieldState extends State<_SearchField> {
+  static const double _searchFontSize = 12;
+  static const double _searchLineHeight = 18;
+  static const double _searchTextHeight = _searchLineHeight / _searchFontSize;
+
   late final TextEditingController _textController = TextEditingController(
     text: widget.controller.searchQuery,
   );
@@ -559,8 +563,10 @@ class _SearchFieldState extends State<_SearchField> {
               const SizedBox(width: AppMetrics.unit),
               Expanded(
                 child: Padding(
-                  // Keep the editable line and its placeholder on the same
-                  // inset so their baselines remain stable across fonts.
+                  // Keep a small, fixed line box centered in the search frame.
+                  // EditableText paints at the top of its own RenderBox, so a
+                  // full-height Positioned.fill would leave typed text above
+                  // the centered placeholder and search icon.
                   padding: const EdgeInsets.symmetric(
                     vertical: AppMetrics.unit,
                   ),
@@ -580,36 +586,43 @@ class _SearchFieldState extends State<_SearchField> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: colors.textFaint,
-                                fontSize: 12,
-                                height: 1.2,
+                                fontSize: _searchFontSize,
+                                height: _searchTextHeight,
                               ),
                             ),
                           ),
                         ),
                       Positioned.fill(
-                        child: EditableText(
-                          key: const ValueKey<String>('shell-search-field'),
-                          controller: _textController,
-                          focusNode: widget.focusNode,
-                          style: TextStyle(
-                            color: colors.text,
-                            fontSize: 12,
-                            height: 1.2,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: _searchLineHeight,
+                            child: EditableText(
+                              key: const ValueKey<String>('shell-search-field'),
+                              controller: _textController,
+                              focusNode: widget.focusNode,
+                              style: TextStyle(
+                                color: colors.text,
+                                fontSize: _searchFontSize,
+                                height: _searchTextHeight,
+                              ),
+                              strutStyle: const StrutStyle(
+                                fontSize: _searchFontSize,
+                                height: _searchTextHeight,
+                                forceStrutHeight: true,
+                              ),
+                              cursorColor: colors.focus,
+                              backgroundCursorColor: colors.textFaint,
+                              selectionColor: colors.focusSoft,
+                              maxLines: 1,
+                              onChanged: (value) {
+                                widget.controller.setSearchQuery(value);
+                                if (mounted) setState(() {});
+                              },
+                              textInputAction: TextInputAction.search,
+                            ),
                           ),
-                          strutStyle: const StrutStyle(
-                            fontSize: 12,
-                            height: 1.2,
-                            forceStrutHeight: true,
-                          ),
-                          cursorColor: colors.focus,
-                          backgroundCursorColor: colors.textFaint,
-                          selectionColor: colors.focusSoft,
-                          maxLines: 1,
-                          onChanged: (value) {
-                            widget.controller.setSearchQuery(value);
-                            if (mounted) setState(() {});
-                          },
-                          textInputAction: TextInputAction.search,
                         ),
                       ),
                     ],

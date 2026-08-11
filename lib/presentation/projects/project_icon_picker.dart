@@ -46,7 +46,7 @@ class _ProjectIconPickerState extends State<ProjectIconPicker> {
         border: Border.all(color: colors.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppMetrics.unit * 2),
+        padding: const EdgeInsets.all(AppMetrics.unit * 2.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -102,7 +102,7 @@ class _ProjectIconPickerState extends State<ProjectIconPicker> {
                     ? 6
                     : 4;
                 return ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 208),
+                  constraints: const BoxConstraints(maxHeight: 196),
                   child: entries.isEmpty
                       ? Center(
                           child: Padding(
@@ -176,10 +176,17 @@ class _IconOption extends StatelessWidget {
         key: ValueKey<String>('project-icon-option-${entry.key}'),
         onPressed: onPressed,
         padding: EdgeInsets.zero,
-        height: 30,
+        height: 32,
         foregroundColor: selected ? colors.focus : colors.textMuted,
-        backgroundColor: selected ? colors.focusSoft : null,
+        backgroundColor: selected ? colors.focusSoft : colors.surface,
         hoverBackgroundColor: colors.focusSoft,
+        decoration: ShadDecoration(
+          border: ShadBorder.all(
+            color: selected ? colors.focus : colors.border,
+            width: selected ? 1.2 : 1,
+            radius: BorderRadius.circular(AppMetrics.smallRadius),
+          ),
+        ),
         child: ProjectIcon(
           iconKey: entry.key,
           color: selected ? colors.focus : colors.textMuted,

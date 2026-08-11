@@ -265,127 +265,158 @@ class _ActionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final palette = ProjectPalette.resolve(colorKey);
-    return ShadDialog(
-      key: const ValueKey<String>('project-action-dialog'),
-      title: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: palette.softBackground,
-              borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
-              border: Border.all(color: palette.border),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppMetrics.unit * 2),
-              child: ProjectIcon(
-                iconKey: iconKey,
-                color: palette.accent,
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppMetrics.unit * 2),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppMetrics.unit * .5),
-              child: Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colors.text,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+    return Center(
+      child: SizedBox(
+        key: const ValueKey<String>('project-action-dialog-card'),
+        width: 380,
+        child: ShadDialog(
+          key: const ValueKey<String>('project-action-dialog'),
+          title: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: palette.softBackground,
+                  borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
+                  child: ProjectIcon(
+                    iconKey: iconKey,
+                    color: palette.accent,
+                    size: 18,
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-      description: Text(
-        disband ? '项目组操作' : '项目操作',
-        style: TextStyle(color: colors.textMuted, fontSize: 12),
-      ),
-      backgroundColor: colors.surface,
-      border: Border.all(color: colors.borderStrong),
-      padding: const EdgeInsets.all(AppMetrics.unit * 5),
-      gap: AppMetrics.unit * 2,
-      constraints: const BoxConstraints(minWidth: 300, maxWidth: 400),
-      actionsGap: AppMetrics.unit * 2,
-      actions: [
-        ShadButton.ghost(
-          key: const ValueKey<String>('project-action-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.surfaceSubtle,
-              borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
-              border: Border.all(color: colors.border),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppMetrics.unit),
-              child: Column(
-                children: [
-                  if (disband)
-                    _ActionButton(
-                      key: const ValueKey<String>('project-action-create'),
-                      icon: AppIcons.add,
-                      label: '新建项目',
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop(ProjectManagementAction.createProject),
-                    ),
-                  _ActionButton(
-                    key: const ValueKey<String>('project-action-edit'),
-                    icon: AppIcons.edit,
-                    label: '编辑',
-                    onPressed: () =>
-                        Navigator.of(context).pop(ProjectManagementAction.edit),
-                  ),
-                  _ActionButton(
-                    key: ValueKey<String>(
-                      'project-action-${isArchived ? 'unarchive' : 'archive'}',
-                    ),
-                    icon: AppIcons.archive,
-                    label: isArchived ? '取消归档' : '归档',
-                    onPressed: () => Navigator.of(context).pop(
-                      isArchived
-                          ? ProjectManagementAction.unarchive
-                          : ProjectManagementAction.archive,
+              const SizedBox(width: AppMetrics.unit * 2),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: AppMetrics.unit * .25),
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (disband)
-                    _ActionButton(
-                      key: const ValueKey<String>('project-action-disband'),
-                      icon: AppIcons.delete,
-                      label: '解散分组',
-                      foregroundColor: colors.focus,
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop(ProjectManagementAction.disband),
-                    )
-                  else
-                    _ActionButton(
-                      key: const ValueKey<String>('project-action-delete'),
-                      icon: AppIcons.delete,
-                      label: '移入回收站',
-                      foregroundColor: colors.focus,
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop(ProjectManagementAction.delete),
-                    ),
-                ],
+                ),
               ),
+            ],
+          ),
+          description: Text(
+            disband ? '项目组操作' : '项目操作',
+            style: TextStyle(color: colors.textMuted, fontSize: 12),
+          ),
+          closeIcon: Semantics(
+            button: true,
+            label: 'project-action-close',
+            child: ShadIconButton.ghost(
+              key: const ValueKey<String>('project-action-close'),
+              icon: const Icon(AppIcons.windowClose, size: 15),
+              width: 26,
+              height: 26,
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ),
-        ],
+          backgroundColor: colors.surface,
+          border: Border.all(color: colors.borderStrong),
+          radius: BorderRadius.circular(AppMetrics.cardRadius),
+          removeBorderRadiusWhenTiny: false,
+          padding: const EdgeInsets.fromLTRB(
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 4.5,
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 3,
+          ),
+          gap: AppMetrics.unit * 2.5,
+          constraints: const BoxConstraints(minWidth: 320, maxWidth: 380),
+          actionsAxis: Axis.vertical,
+          actionsMainAxisSize: MainAxisSize.max,
+          actionsMainAxisAlignment: MainAxisAlignment.center,
+          actionsGap: AppMetrics.unit * 2.5,
+          actions: [
+            ShadButton.ghost(
+              key: const ValueKey<String>('project-action-cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+              width: double.infinity,
+              height: 36,
+              child: const Text('取消'),
+            ),
+          ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.transparent,
+                  borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+                  border: Border.all(color: colors.transparent),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      if (disband)
+                        _ActionButton(
+                          key: const ValueKey<String>('project-action-create'),
+                          icon: AppIcons.add,
+                          label: '新建项目',
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pop(ProjectManagementAction.createProject),
+                        ),
+                      _ActionButton(
+                        key: const ValueKey<String>('project-action-edit'),
+                        icon: AppIcons.edit,
+                        label: '编辑',
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(ProjectManagementAction.edit),
+                      ),
+                      _ActionButton(
+                        key: ValueKey<String>(
+                          'project-action-${isArchived ? 'unarchive' : 'archive'}',
+                        ),
+                        icon: AppIcons.archive,
+                        label: isArchived ? '取消归档' : '归档',
+                        onPressed: () => Navigator.of(context).pop(
+                          isArchived
+                              ? ProjectManagementAction.unarchive
+                              : ProjectManagementAction.archive,
+                        ),
+                      ),
+                      if (disband)
+                        _ActionButton(
+                          key: const ValueKey<String>('project-action-disband'),
+                          icon: AppIcons.delete,
+                          label: '解散分组',
+                          foregroundColor: colors.focus,
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pop(ProjectManagementAction.disband),
+                        )
+                      else
+                        _ActionButton(
+                          key: const ValueKey<String>('project-action-delete'),
+                          icon: AppIcons.delete,
+                          label: '移入回收站',
+                          foregroundColor: colors.focus,
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pop(ProjectManagementAction.delete),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -408,23 +439,45 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return ShadButton.ghost(
-      onPressed: onPressed,
-      width: double.infinity,
-      height: 38,
-      expands: true,
-      mainAxisAlignment: MainAxisAlignment.start,
-      padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
-      foregroundColor: foregroundColor ?? colors.text,
-      hoverBackgroundColor: colors.focusSoft,
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Icon(icon, size: AppMetrics.iconSize),
-          const SizedBox(width: AppMetrics.unit * 2),
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
-          Icon(AppIcons.chevronRight, size: 14, color: colors.textFaint),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppMetrics.unit * 1.5),
+      child: ShadButton.ghost(
+        onPressed: onPressed,
+        width: double.infinity,
+        height: 44,
+        expands: true,
+        mainAxisAlignment: MainAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 1.5),
+        foregroundColor: foregroundColor ?? colors.text,
+        hoverBackgroundColor: colors.focusSoft,
+        decoration: ShadDecoration(
+          color: colors.surface,
+          border: ShadBorder.all(
+            color: colors.border,
+            width: 1,
+            radius: BorderRadius.circular(AppMetrics.smallRadius),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.focusSoft,
+                borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+                border: Border.all(color: colors.border),
+              ),
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Center(child: Icon(icon, size: AppMetrics.iconSize)),
+              ),
+            ),
+            const SizedBox(width: AppMetrics.unit * 2),
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
+            Icon(AppIcons.chevronRight, size: 15, color: colors.textFaint),
+          ],
+        ),
       ),
     );
   }

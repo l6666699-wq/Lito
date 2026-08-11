@@ -428,4 +428,111 @@ void main() {
       }
     }
   });
+
+  testWidgets('project action dialog keeps compact card and action order', (
+    tester,
+  ) async {
+    final controller = WorkspaceController();
+    addTearDown(controller.dispose);
+    await pumpApp(tester, controller);
+    final group = controller.groups.first;
+
+    await tester.tap(
+      find.byKey(ValueKey<String>('project-group-more-${group.id}')),
+    );
+    await tester.pumpAndSettle();
+
+    final dialog = find.byKey(
+      const ValueKey<String>('project-action-dialog-card'),
+    );
+    expect(dialog, findsOneWidget);
+    final size = tester.getSize(dialog);
+    expect(size.width, greaterThanOrEqualTo(320));
+    expect(size.width, lessThanOrEqualTo(380));
+    expect(
+      find.byKey(const ValueKey<String>('project-action-close')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-action-cancel')),
+      findsOneWidget,
+    );
+
+    final keys = <String>[
+      'project-action-create',
+      'project-action-edit',
+      'project-action-archive',
+      'project-action-disband',
+    ];
+    final widgets = tester.allWidgets.toList(growable: false);
+    final indexes = keys
+        .map(
+          (key) => widgets.indexWhere(
+            (widget) => widget.key == ValueKey<String>(key),
+          ),
+        )
+        .toList(growable: false);
+    expect(indexes.every((index) => index >= 0), isTrue);
+    expect(indexes, orderedEquals(indexes.toList()..sort()));
+  });
+
+  testWidgets('project editor exposes form sections and icon grid', (
+    tester,
+  ) async {
+    final controller = WorkspaceController();
+    addTearDown(controller.dispose);
+    await pumpApp(tester, controller);
+    unawaited(
+      ProjectManagement.showCreateProject(
+        tester.element(find.byKey(const ValueKey<String>('app-shell-canvas'))),
+        controller,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dialog = find.byKey(
+      const ValueKey<String>('project-editor-dialog-card'),
+    );
+    expect(dialog, findsOneWidget);
+    final size = tester.getSize(dialog);
+    expect(size.width, greaterThanOrEqualTo(400));
+    expect(size.width, lessThanOrEqualTo(520));
+    expect(
+      find.byKey(const ValueKey<String>('project-name-input')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-group-selector')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-icon-search')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-icon-grid')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-icon-option-folder')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-editor-cancel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-editor-save')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('project-editor-close')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('project-editor-dialog')),
+      findsNothing,
+    );
+  });
 }
