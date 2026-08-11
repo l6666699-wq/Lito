@@ -276,7 +276,7 @@ void main() {
     expect(dragHandle, findsOneWidget);
     final dragGesture = await tester.startGesture(tester.getCenter(dragHandle));
     await dragGesture.up();
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(
       find.byKey(ValueKey<String>('sticky-checkbox-${firstRow.todo.id}')),
