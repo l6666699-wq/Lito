@@ -265,51 +265,124 @@ class _ActionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final palette = ProjectPalette.resolve(colorKey);
+    final actionButtons = <Widget>[
+      if (disband)
+        _ActionButton(
+          key: const ValueKey<String>('project-action-create'),
+          actionKey: 'create',
+          icon: AppIcons.add,
+          label: '新建项目',
+          palette: ProjectPalette.resolve('blue'),
+          onPressed: () =>
+              Navigator.of(context).pop(ProjectManagementAction.createProject),
+        ),
+      _ActionButton(
+        key: const ValueKey<String>('project-action-edit'),
+        actionKey: 'edit',
+        icon: AppIcons.edit,
+        label: '编辑',
+        palette: ProjectPalette.resolve('green'),
+        onPressed: () =>
+            Navigator.of(context).pop(ProjectManagementAction.edit),
+      ),
+      _ActionButton(
+        key: ValueKey<String>(
+          'project-action-${isArchived ? 'unarchive' : 'archive'}',
+        ),
+        actionKey: isArchived ? 'unarchive' : 'archive',
+        icon: AppIcons.archive,
+        label: isArchived ? '取消归档' : '归档',
+        palette: ProjectPalette.resolve('orange'),
+        onPressed: () => Navigator.of(context).pop(
+          isArchived
+              ? ProjectManagementAction.unarchive
+              : ProjectManagementAction.archive,
+        ),
+      ),
+      if (disband)
+        _ActionButton(
+          key: const ValueKey<String>('project-action-disband'),
+          actionKey: 'disband',
+          icon: AppIcons.delete,
+          label: '解散分组',
+          palette: ProjectPalette.resolve('red'),
+          foregroundColor: ProjectPalette.resolve('red').foreground,
+          onPressed: () =>
+              Navigator.of(context).pop(ProjectManagementAction.disband),
+        )
+      else
+        _ActionButton(
+          key: const ValueKey<String>('project-action-delete'),
+          actionKey: 'delete',
+          icon: AppIcons.delete,
+          label: '移入回收站',
+          palette: ProjectPalette.resolve('red'),
+          foregroundColor: ProjectPalette.resolve('red').foreground,
+          onPressed: () =>
+              Navigator.of(context).pop(ProjectManagementAction.delete),
+        ),
+    ];
     return Center(
       child: SizedBox(
         key: const ValueKey<String>('project-action-dialog-card'),
         width: 380,
         child: ShadDialog(
           key: const ValueKey<String>('project-action-dialog'),
-          title: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: palette.softBackground,
-                  borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-                  border: Border.all(color: palette.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppMetrics.unit * 1.5),
-                  child: ProjectIcon(
-                    iconKey: iconKey,
-                    color: palette.accent,
-                    size: 18,
+          title: Padding(
+            // Keep the heading clear of the close affordance, even when a
+            // project name wraps to a second line.
+            padding: const EdgeInsets.only(right: AppMetrics.unit * 7),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  key: const ValueKey<String>('project-action-title-icon'),
+                  decoration: BoxDecoration(
+                    color: colors.focusSoft,
+                    borderRadius: BorderRadius.circular(
+                      AppMetrics.normalRadius,
+                    ),
+                    border: Border.all(color: colors.border, width: .8),
                   ),
-                ),
-              ),
-              const SizedBox(width: AppMetrics.unit * 2),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: AppMetrics.unit * .25),
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                  child: SizedBox(
+                    width: AppMetrics.unit * 10,
+                    height: AppMetrics.unit * 10,
+                    child: Center(
+                      child: ProjectIcon(
+                        iconKey: iconKey,
+                        color: palette.accent,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: AppMetrics.unit * 2.5),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: AppMetrics.unit * .5),
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.text,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           description: Text(
             disband ? '项目组操作' : '项目操作',
-            style: TextStyle(color: colors.textMuted, fontSize: 12),
+            key: const ValueKey<String>('project-action-description'),
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           closeIcon: Semantics(
             button: true,
@@ -323,98 +396,53 @@ class _ActionDialog extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
+          closeIconPosition: ShadPosition.directional(
+            top: AppMetrics.unit * 3,
+            end: AppMetrics.unit * 3,
+            textDirection: Directionality.of(context),
+          ),
           backgroundColor: colors.surface,
-          border: Border.all(color: colors.borderStrong),
-          radius: BorderRadius.circular(AppMetrics.cardRadius),
+          border: Border.all(color: colors.border, width: .8),
+          radius: BorderRadius.circular(AppMetrics.shellCardRadius),
           removeBorderRadiusWhenTiny: false,
           padding: const EdgeInsets.fromLTRB(
             AppMetrics.unit * 5,
-            AppMetrics.unit * 4.5,
             AppMetrics.unit * 5,
-            AppMetrics.unit * 3,
+            AppMetrics.unit * 5,
+            AppMetrics.unit * 4,
           ),
-          gap: AppMetrics.unit * 2.5,
+          gap: AppMetrics.unit * 3,
           constraints: const BoxConstraints(minWidth: 320, maxWidth: 380),
-          actionsAxis: Axis.vertical,
-          actionsMainAxisSize: MainAxisSize.max,
-          actionsMainAxisAlignment: MainAxisAlignment.center,
-          actionsGap: AppMetrics.unit * 2.5,
-          actions: [
-            ShadButton.ghost(
-              key: const ValueKey<String>('project-action-cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-              width: double.infinity,
-              height: 36,
-              child: const Text('取消'),
-            ),
-          ],
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.transparent,
-                  borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-                  border: Border.all(color: colors.transparent),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      if (disband)
-                        _ActionButton(
-                          key: const ValueKey<String>('project-action-create'),
-                          icon: AppIcons.add,
-                          label: '新建项目',
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pop(ProjectManagementAction.createProject),
-                        ),
-                      _ActionButton(
-                        key: const ValueKey<String>('project-action-edit'),
-                        icon: AppIcons.edit,
-                        label: '编辑',
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pop(ProjectManagementAction.edit),
-                      ),
-                      _ActionButton(
-                        key: ValueKey<String>(
-                          'project-action-${isArchived ? 'unarchive' : 'archive'}',
-                        ),
-                        icon: AppIcons.archive,
-                        label: isArchived ? '取消归档' : '归档',
-                        onPressed: () => Navigator.of(context).pop(
-                          isArchived
-                              ? ProjectManagementAction.unarchive
-                              : ProjectManagementAction.archive,
-                        ),
-                      ),
-                      if (disband)
-                        _ActionButton(
-                          key: const ValueKey<String>('project-action-disband'),
-                          icon: AppIcons.delete,
-                          label: '解散分组',
-                          foregroundColor: colors.focus,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pop(ProjectManagementAction.disband),
-                        )
-                      else
-                        _ActionButton(
-                          key: const ValueKey<String>('project-action-delete'),
-                          icon: AppIcons.delete,
-                          label: '移入回收站',
-                          foregroundColor: colors.focus,
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pop(ProjectManagementAction.delete),
-                        ),
-                    ],
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          actions: const [],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 300),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var index = 0; index < actionButtons.length; index++) ...[
+                  actionButtons[index],
+                  if (index < actionButtons.length - 1)
+                    const SizedBox(height: AppMetrics.unit * 2),
+                ],
+                const SizedBox(height: AppMetrics.unit * 3),
+                Align(
+                  key: const ValueKey<String>('project-action-cancel-slot'),
+                  alignment: Alignment.centerRight,
+                  child: ShadButton.ghost(
+                    key: const ValueKey<String>('project-action-cancel'),
+                    onPressed: () => Navigator.of(context).pop(),
+                    width: AppMetrics.unit * 16,
+                    height: AppMetrics.unit * 8,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppMetrics.unit * 3,
+                    ),
+                    child: const Text('取消'),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -425,59 +453,78 @@ class _ActionDialog extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     super.key,
+    required this.actionKey,
     required this.icon,
     required this.label,
     required this.onPressed,
+    required this.palette,
     this.foregroundColor,
   });
 
+  final String actionKey;
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
+  final ProjectPaletteEntry palette;
   final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppMetrics.unit * 1.5),
-      child: ShadButton.ghost(
-        onPressed: onPressed,
-        width: double.infinity,
-        height: 44,
-        expands: true,
-        mainAxisAlignment: MainAxisAlignment.start,
-        padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 1.5),
-        foregroundColor: foregroundColor ?? colors.text,
-        hoverBackgroundColor: colors.focusSoft,
-        decoration: ShadDecoration(
-          color: colors.surface,
-          border: ShadBorder.all(
-            color: colors.border,
-            width: 1,
-            radius: BorderRadius.circular(AppMetrics.smallRadius),
-          ),
+    return ShadButton.ghost(
+      key: ValueKey<String>('project-action-$actionKey-button'),
+      onPressed: onPressed,
+      width: double.infinity,
+      height: AppMetrics.unit * 12,
+      expands: true,
+      mainAxisAlignment: MainAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
+      foregroundColor: foregroundColor ?? colors.text,
+      hoverBackgroundColor: colors.focusSoft,
+      decoration: ShadDecoration(
+        color: colors.surface,
+        border: ShadBorder.all(
+          color: colors.border,
+          width: .8,
+          radius: BorderRadius.circular(AppMetrics.normalRadius),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.focusSoft,
-                borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-                border: Border.all(color: colors.border),
-              ),
-              child: SizedBox(
-                width: 30,
-                height: 30,
-                child: Center(child: Icon(icon, size: AppMetrics.iconSize)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          DecoratedBox(
+            key: ValueKey<String>('project-action-$actionKey-icon'),
+            decoration: BoxDecoration(
+              color: palette.softBackground,
+              borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+              border: Border.all(color: palette.border, width: .8),
+            ),
+            child: SizedBox(
+              width: AppMetrics.unit * 8,
+              height: AppMetrics.unit * 8,
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: AppMetrics.iconSize,
+                  color: palette.accent,
+                ),
               ),
             ),
-            const SizedBox(width: AppMetrics.unit * 2),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
-            Icon(AppIcons.chevronRight, size: 15, color: colors.textFaint),
-          ],
-        ),
+          ),
+          const SizedBox(width: AppMetrics.unit * 2.5),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Icon(
+            AppIcons.chevronRight,
+            size: AppMetrics.iconSize,
+            color: colors.textFaint,
+          ),
+        ],
       ),
     );
   }

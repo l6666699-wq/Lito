@@ -406,6 +406,7 @@ class _EditorDialogHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DecoratedBox(
+          key: const ValueKey<String>('project-editor-header-icon'),
           decoration: BoxDecoration(
             color: palette.softBackground,
             borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
@@ -422,26 +423,27 @@ class _EditorDialogHeader extends StatelessWidget {
         ),
         const SizedBox(width: AppMetrics.unit * 2),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: AppMetrics.unit * .5),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: colors.text,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                key: const ValueKey<String>('project-editor-header-title'),
+                style: TextStyle(
+                  color: colors.text,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: AppMetrics.unit),
-                Text(
-                  description,
-                  style: TextStyle(color: colors.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: AppMetrics.unit),
+              Text(
+                description,
+                key: const ValueKey<String>(
+                  'project-editor-header-description',
                 ),
-              ],
-            ),
+                style: TextStyle(color: colors.textMuted, fontSize: 12),
+              ),
+            ],
           ),
         ),
       ],

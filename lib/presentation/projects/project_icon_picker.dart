@@ -86,7 +86,10 @@ class _ProjectIconPickerState extends State<ProjectIconPicker> {
                         ),
                         alignment: Alignment.centerLeft,
                         placeholderAlignment: Alignment.centerLeft,
-                        decoration: const ShadDecoration(border: null),
+                        // The picker already provides its own subtle surface;
+                        // keep the input's internal decorator completely
+                        // borderless in both idle and focused states.
+                        decoration: ShadDecoration.none,
                         constraints: const BoxConstraints(minHeight: 28),
                       ),
                     ),

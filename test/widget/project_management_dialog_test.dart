@@ -2,8 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'package:litetodo/app/litetodo_app.dart';
+import 'package:litetodo/app/theme/app_colors.dart';
+import 'package:litetodo/app/theme/app_metrics.dart';
+import 'package:litetodo/app/theme/project_palette.dart';
 import 'package:litetodo/application/settings_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/domain/models/app_settings.dart';
@@ -476,6 +480,114 @@ void main() {
     expect(indexes, orderedEquals(indexes.toList()..sort()));
   });
 
+  testWidgets('project group actions use semantic colors and stable spacing', (
+    tester,
+  ) async {
+    final controller = WorkspaceController();
+    addTearDown(controller.dispose);
+    await pumpApp(tester, controller);
+    final group = controller.groups.first;
+
+    await tester.tap(
+      find.byKey(ValueKey<String>('project-group-more-${group.id}')),
+    );
+    await tester.pumpAndSettle();
+
+    final dialogFinder = find.byKey(
+      const ValueKey<String>('project-action-dialog'),
+    );
+    final cardBackgroundFinder = find
+        .descendant(of: dialogFinder, matching: find.byType(DecoratedBox))
+        .first;
+    final cardRect = tester.getRect(cardBackgroundFinder);
+    expect(cardRect.width, greaterThanOrEqualTo(320));
+    expect(cardRect.width, lessThanOrEqualTo(380));
+    final dialog = tester.widget<ShadDialog>(dialogFinder);
+    final colors = AppColors.of(tester.element(dialogFinder));
+    expect(dialog.backgroundColor, colors.surface);
+    expect(dialog.radius, BorderRadius.circular(AppMetrics.shellCardRadius));
+    final cardBorder = dialog.border! as Border;
+    expect(cardBorder.top.color, colors.border);
+    expect(cardBorder.top.width, closeTo(.8, .01));
+
+    final titleIcon = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('project-action-title-icon')),
+    );
+    final titleDecoration = titleIcon.decoration as BoxDecoration;
+    expect(titleDecoration.color, colors.focusSoft);
+    expect((titleDecoration.border! as Border).top.color, colors.border);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('project-action-title-icon')),
+      ),
+      const Size(AppMetrics.unit * 10, AppMetrics.unit * 10),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('project-action-description')),
+      findsOneWidget,
+    );
+
+    const semanticKeys = <String, String>{
+      'create': 'blue',
+      'edit': 'green',
+      'archive': 'orange',
+      'disband': 'red',
+    };
+    final actionRects = <Rect>[];
+    for (final entry in semanticKeys.entries) {
+      final actionFinder = find.byKey(
+        ValueKey<String>('project-action-${entry.key}'),
+      );
+      final iconFinder = find.byKey(
+        ValueKey<String>('project-action-${entry.key}-icon'),
+      );
+      expect(actionFinder, findsOneWidget);
+      expect(iconFinder, findsOneWidget);
+      final actionButtonFinder = find.byKey(
+        ValueKey<String>('project-action-${entry.key}-button'),
+      );
+      final action = tester.widget<ShadButton>(actionButtonFinder);
+      expect(action.height, AppMetrics.unit * 12);
+      expect(action.width, double.infinity);
+      final actionRect = tester.getRect(actionButtonFinder);
+      actionRects.add(actionRect);
+      final iconBlock = tester.widget<DecoratedBox>(iconFinder);
+      final iconDecoration = iconBlock.decoration as BoxDecoration;
+      final palette = ProjectPalette.resolve(entry.value);
+      expect(iconDecoration.color, palette.softBackground);
+      expect((iconDecoration.border! as Border).top.color, palette.border);
+      final icon = tester.widget<Icon>(
+        find.descendant(of: iconFinder, matching: find.byType(Icon)),
+      );
+      expect(icon.color, palette.accent);
+    }
+
+    for (var index = 1; index < actionRects.length; index++) {
+      expect(
+        actionRects[index].top - actionRects[index - 1].bottom,
+        closeTo(AppMetrics.unit * 2, 1),
+      );
+      expect(actionRects[index].width, closeTo(actionRects.first.width, 1));
+    }
+
+    final cancelFinder = find.byKey(
+      const ValueKey<String>('project-action-cancel'),
+    );
+    final cancel = tester.widget<ShadButton>(cancelFinder);
+    final cancelRect = tester.getRect(cancelFinder);
+    expect(cancel.width, AppMetrics.unit * 16);
+    expect(cancel.height, AppMetrics.unit * 8);
+    expect(cancelRect.right, closeTo(cardRect.right - AppMetrics.unit * 5, 1));
+    expect(
+      cancelRect.bottom,
+      closeTo(cardRect.bottom - AppMetrics.unit * 4, 1),
+    );
+    expect(
+      cancelRect.top - actionRects.last.bottom,
+      greaterThanOrEqualTo(AppMetrics.unit * 3 - 1),
+    );
+  });
+
   testWidgets('project editor exposes form sections and icon grid', (
     tester,
   ) async {
@@ -540,5 +652,82 @@ void main() {
       find.byKey(const ValueKey<String>('project-editor-dialog')),
       findsNothing,
     );
+  });
+
+  testWidgets('project icon search has no idle or focused borders', (
+    tester,
+  ) async {
+    final controller = WorkspaceController();
+    addTearDown(controller.dispose);
+    await pumpApp(tester, controller);
+    unawaited(
+      ProjectManagement.showCreateProject(
+        tester.element(find.byKey(const ValueKey<String>('app-shell-canvas'))),
+        controller,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final inputFinder = find.byKey(
+      const ValueKey<String>('project-icon-search'),
+    );
+    final input = tester.widget<ShadInput>(inputFinder);
+    expect(input.decoration, isNotNull);
+    final decoration = input.decoration!;
+    expect(decoration.border?.hasBorder ?? false, isFalse);
+    expect(decoration.focusedBorder?.hasBorder ?? false, isFalse);
+    expect(decoration.secondaryBorder?.hasBorder ?? false, isFalse);
+    expect(decoration.secondaryFocusedBorder?.hasBorder ?? false, isFalse);
+
+    final inputState = tester.state<ShadInputState>(inputFinder);
+    expect(inputState.hasFocus.value, isFalse);
+    await tester.tap(inputFinder);
+    await tester.pump();
+    expect(inputState.hasFocus.value, isTrue);
+    expect(decoration.border?.hasBorder ?? false, isFalse);
+    expect(decoration.focusedBorder?.hasBorder ?? false, isFalse);
+    expect(decoration.secondaryBorder?.hasBorder ?? false, isFalse);
+    expect(decoration.secondaryFocusedBorder?.hasBorder ?? false, isFalse);
+  });
+
+  testWidgets('project and group editor headers align icon and title tops', (
+    tester,
+  ) async {
+    final controller = WorkspaceController();
+    addTearDown(controller.dispose);
+    await pumpApp(tester, controller);
+    final canvas = tester.element(
+      find.byKey(const ValueKey<String>('app-shell-canvas')),
+    );
+
+    void expectHeaderAlignment() {
+      final iconRect = tester.getRect(
+        find.byKey(const ValueKey<String>('project-editor-header-icon')),
+      );
+      final titleRect = tester.getRect(
+        find.byKey(const ValueKey<String>('project-editor-header-title')),
+      );
+      final descriptionRect = tester.getRect(
+        find.byKey(const ValueKey<String>('project-editor-header-description')),
+      );
+      expect(iconRect.top, closeTo(titleRect.top, 0.5));
+      expect(descriptionRect.top, greaterThan(titleRect.bottom));
+      expect(
+        descriptionRect.top - titleRect.bottom,
+        closeTo(AppMetrics.unit, 0.5),
+      );
+    }
+
+    unawaited(ProjectManagement.showCreateProject(canvas, controller));
+    await tester.pumpAndSettle();
+    expectHeaderAlignment();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('project-editor-cancel')),
+    );
+    await tester.pumpAndSettle();
+
+    unawaited(ProjectManagement.showCreateGroup(canvas, controller));
+    await tester.pumpAndSettle();
+    expectHeaderAlignment();
   });
 }
