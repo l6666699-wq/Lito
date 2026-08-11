@@ -41,6 +41,8 @@ class FullAppShell extends StatefulWidget {
 }
 
 class _MoreButton extends StatelessWidget {
+  static const double _hitBoxSize = 28;
+
   const _MoreButton({
     super.key,
     required this.tooltip,
@@ -57,8 +59,8 @@ class _MoreButton extends StatelessWidget {
       builder: (context) => Text(tooltip),
       child: ShadButton.ghost(
         onPressed: onPressed,
-        height: 28,
-        width: 28,
+        height: _hitBoxSize,
+        width: _hitBoxSize,
         padding: EdgeInsets.zero,
         foregroundColor: colors.textFaint,
         hoverBackgroundColor: colors.focusSoft,
@@ -371,6 +373,7 @@ class _Topbar extends StatelessWidget {
                           onPressed: navigationController.goStatistics,
                         ),
                       ),
+                      const SizedBox(width: AppMetrics.unit * 2),
                       ListenableBuilder(
                         listenable: navigationController,
                         builder: (context, child) => _TopbarButton(
@@ -696,21 +699,17 @@ class _TopbarButton extends StatelessWidget {
       width: 32,
       height: 34,
       child: Semantics(
+        label: label,
         button: true,
-        child: ShadTooltip(
-          builder: (context) => Text(label),
-          child: ShadButton.ghost(
-            onPressed: enabled ? onPressed : null,
-            height: 34,
-            width: 32,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppMetrics.unit * 2,
-            ),
-            foregroundColor: active ? colors.focus : colors.textMuted,
-            backgroundColor: active ? colors.focusSoft : null,
-            hoverBackgroundColor: colors.focusSoft,
-            child: Icon(icon, size: 16),
-          ),
+        child: ShadButton.ghost(
+          onPressed: enabled ? onPressed : null,
+          height: 34,
+          width: 32,
+          padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
+          foregroundColor: active ? colors.focus : colors.textMuted,
+          backgroundColor: active ? colors.focusSoft : null,
+          hoverBackgroundColor: colors.focusSoft,
+          child: Icon(icon, size: 16),
         ),
       ),
     );
@@ -737,20 +736,17 @@ class _WindowCaptionButton extends StatelessWidget {
       key: controlKey,
       width: AppMetrics.windowControlSize,
       height: AppMetrics.windowControlSize,
-      child: ShadTooltip(
-        builder: (context) => Text(tooltip),
-        child: Semantics(
-          label: tooltip,
-          button: true,
-          child: ShadButton.ghost(
-            onPressed: onPressed,
-            height: AppMetrics.windowControlSize,
-            width: AppMetrics.windowControlSize,
-            padding: EdgeInsets.zero,
-            foregroundColor: colors.textMuted,
-            hoverBackgroundColor: colors.focusSoft,
-            child: Icon(icon, size: 15),
-          ),
+      child: Semantics(
+        label: tooltip,
+        button: true,
+        child: ShadButton.ghost(
+          onPressed: onPressed,
+          height: AppMetrics.windowControlSize,
+          width: AppMetrics.windowControlSize,
+          padding: EdgeInsets.zero,
+          foregroundColor: colors.textMuted,
+          hoverBackgroundColor: colors.focusSoft,
+          child: Icon(icon, size: 15),
         ),
       ),
     );
@@ -1188,7 +1184,7 @@ class _GroupProjects extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(
                 AppMetrics.unit * 2,
                 AppMetrics.unit,
-                AppMetrics.unit * 2,
+                AppMetrics.unit * 3,
                 AppMetrics.unit,
               ),
               child: Row(
@@ -1225,6 +1221,7 @@ class _GroupProjects extends StatelessWidget {
                     '${controller.unfinishedCountForGroup(group.id)}',
                     style: TextStyle(color: colors.textFaint, fontSize: 10),
                   ),
+                  const SizedBox(width: AppMetrics.unit * 2),
                   _MoreButton(
                     key: ValueKey<String>('project-group-more-${group.id}'),
                     tooltip: '项目组操作',

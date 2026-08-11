@@ -161,9 +161,23 @@ void main() {
         lessThan(controlRects['shell-settings-button']!.left),
       );
       expect(
+        controlRects['shell-settings-button']!.left -
+            controlRects['shell-statistics-button']!.right,
+        closeTo(AppMetrics.unit * 2, 1),
+      );
+      expect(
         controlRects['shell-settings-button']!.left,
         lessThan(controlRects['shell-theme-button']!.left),
       );
+      for (final key in controlKeys) {
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey<String>(key)),
+            matching: find.byType(ShadTooltip),
+          ),
+          findsNothing,
+        );
+      }
       if (size.width == 1672) {
         expect(
           controlRects['shell-window-close-button']!.right,
@@ -430,5 +444,52 @@ void main() {
       iconRect.left - arrowRect.right,
       greaterThanOrEqualTo(AppMetrics.unit),
     );
+  });
+
+  testWidgets('project group actions keep stable spacing and hitbox', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(860, 620);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final workspace = WorkspaceController();
+    addTearDown(workspace.dispose);
+    await tester.pumpWidget(LiteTodoApp(controller: workspace));
+    await tester.pumpAndSettle();
+
+    final group = workspace.groups.first;
+    final groupFinder = find.byKey(
+      ValueKey<String>('project-group-${group.id}'),
+    );
+    final countFinder = find.descendant(
+      of: groupFinder,
+      matching: find.text('${workspace.unfinishedCountForGroup(group.id)}'),
+    );
+    final moreFinder = find.byKey(
+      ValueKey<String>('project-group-more-${group.id}'),
+    );
+    final groupRect = tester.getRect(groupFinder);
+    final countRect = tester.getRect(countFinder);
+    final moreRect = tester.getRect(moreFinder);
+    final sidebarRect = tester.getRect(
+      find.byKey(const ValueKey<String>('sidebar-scroll')),
+    );
+
+    expect(moreRect.width, closeTo(28, 1));
+    expect(moreRect.height, closeTo(28, 1));
+    expect(
+      moreRect.left - countRect.right,
+      greaterThanOrEqualTo(AppMetrics.unit * 2),
+    );
+    expect(groupRect.right - moreRect.right, closeTo(AppMetrics.unit * 3, 1));
+    expect(
+      sidebarRect.right - moreRect.right,
+      greaterThanOrEqualTo(AppMetrics.unit * 5),
+    );
+    expect(moreRect.right, lessThanOrEqualTo(sidebarRect.right));
   });
 }
