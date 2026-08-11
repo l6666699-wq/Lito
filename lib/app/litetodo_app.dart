@@ -149,6 +149,11 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
           groupName: groups[project.groupId]?.name,
         ),
     ]);
+    _quickAddController.setWorkspaceProjectId(
+      _controller.scope == WorkspaceScope.project
+          ? _controller.projectScopeId
+          : null,
+    );
   }
 
   void _toggleTheme() {

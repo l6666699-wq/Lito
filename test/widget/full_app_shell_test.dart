@@ -98,6 +98,56 @@ void main() {
     expect(navigation.page, AppPage.statistics);
   });
 
+  testWidgets('topbar add task opens the inline composer in full mode', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    final windows = WindowController(
+      desktopService: FakeDesktopWindowService(),
+    );
+    final navigation = AppNavigationController(initialPage: AppPage.statistics);
+    addTearDown(() {
+      windows.dispose();
+      workspace.dispose();
+      navigation.dispose();
+    });
+
+    await tester.pumpWidget(
+      LiteTodoApp(
+        controller: workspace,
+        windowController: windows,
+        navigationController: navigation,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('统计'), findsWidgets);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('shell-add-task-button')),
+    );
+    await tester.pump();
+
+    expect(navigation.page, AppPage.home);
+    expect(windows.mode, WindowMode.full);
+    expect(
+      find.byKey(const ValueKey<String>('todo-inline-composer')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byType(EditableText).last,
+      'topbar-created-task',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(
+      workspace.todos.any((todo) => todo.title == 'topbar-created-task'),
+      isTrue,
+    );
+    expect(windows.mode, WindowMode.full);
+  });
+
   for (final size in const <Size>[
     Size(1672, 941),
     Size(860, 620),

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../app/app_text.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../application/home_page_controller.dart';
 import '../../application/workspace_controller.dart';
 import '../../domain/models/visible_todo_row.dart';
 import '../../icons/app_icons.dart';
@@ -14,9 +15,14 @@ import '../todo/todo_list.dart';
 /// current scope and visible rows so the shared shell never manufactures
 /// benchmark or screenshot-only content.
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.controller});
+  const HomePage({
+    super.key,
+    required this.controller,
+    this.composerController,
+  });
 
   final WorkspaceController controller;
+  final HomePageController? composerController;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -37,6 +43,36 @@ class _HomePageState extends State<HomePage> {
   int _composerGeneration = 0;
 
   WorkspaceController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.composerController?.addListener(_onComposerRequest);
+    // A topbar click can request the composer while another full-shell route
+    // is visible. Consume that queued request when HomePage is mounted.
+    _onComposerRequest();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.composerController == widget.composerController) return;
+    oldWidget.composerController?.removeListener(_onComposerRequest);
+    widget.composerController?.addListener(_onComposerRequest);
+    _onComposerRequest();
+  }
+
+  @override
+  void dispose() {
+    widget.composerController?.removeListener(_onComposerRequest);
+    super.dispose();
+  }
+
+  void _onComposerRequest() {
+    final request = widget.composerController?.takeComposerRequest();
+    if (request == null || !mounted) return;
+    _openComposer(request.parentId);
+  }
 
   void _openComposer([String? parentId]) {
     setState(() {

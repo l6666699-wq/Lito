@@ -10,6 +10,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
 import '../../app/theme/project_palette.dart';
 import '../../application/app_navigation_controller.dart';
+import '../../application/home_page_controller.dart';
 import '../../application/window_controller.dart';
 import '../../application/workspace_controller.dart';
 import '../../icons/app_icons.dart';
@@ -74,6 +75,7 @@ class _FullAppShellState extends State<FullAppShell> {
   late final FocusNode _searchFocusNode = FocusNode(
     debugLabel: 'shell-search-input',
   );
+  late final HomePageController _homePageController = HomePageController();
   bool _editableTextFocused = false;
 
   @override
@@ -86,7 +88,13 @@ class _FullAppShellState extends State<FullAppShell> {
   void dispose() {
     FocusManager.instance.removeListener(_onFocusChanged);
     _searchFocusNode.dispose();
+    _homePageController.dispose();
     super.dispose();
+  }
+
+  void _openHomeComposer() {
+    widget.navigationController.goHome();
+    _homePageController.openComposer();
   }
 
   void _onFocusChanged() {
@@ -158,6 +166,7 @@ class _FullAppShellState extends State<FullAppShell> {
                         controller: widget.controller,
                         windowController: widget.windowController,
                         navigationController: widget.navigationController,
+                        onAddTask: _openHomeComposer,
                         searchFocusNode: _searchFocusNode,
                         onToggleTheme: widget.onToggleTheme,
                       ),
@@ -165,6 +174,7 @@ class _FullAppShellState extends State<FullAppShell> {
                         child: _RouteContent(
                           controller: widget.controller,
                           navigationController: widget.navigationController,
+                          homePageController: _homePageController,
                         ),
                       ),
                     ],
@@ -217,10 +227,12 @@ class _RouteContent extends StatelessWidget {
   const _RouteContent({
     required this.controller,
     required this.navigationController,
+    required this.homePageController,
   });
 
   final WorkspaceController controller;
   final AppNavigationController navigationController;
+  final HomePageController homePageController;
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +241,10 @@ class _RouteContent extends StatelessWidget {
       builder: (context, child) {
         switch (navigationController.page) {
           case AppPage.home:
-            return HomePage(controller: controller);
+            return HomePage(
+              controller: controller,
+              composerController: homePageController,
+            );
           case AppPage.statistics:
             return StatisticsPage(controller: controller);
           case AppPage.trash:
@@ -247,6 +262,7 @@ class _Topbar extends StatelessWidget {
     required this.controller,
     required this.windowController,
     required this.navigationController,
+    required this.onAddTask,
     required this.searchFocusNode,
     required this.onToggleTheme,
   });
@@ -254,6 +270,7 @@ class _Topbar extends StatelessWidget {
   final WorkspaceController controller;
   final WindowController windowController;
   final AppNavigationController navigationController;
+  final VoidCallback onAddTask;
   final FocusNode searchFocusNode;
   final VoidCallback? onToggleTheme;
 
@@ -306,7 +323,7 @@ class _Topbar extends StatelessWidget {
                                 key: const ValueKey<String>(
                                   'shell-add-task-button',
                                 ),
-                                onPressed: windowController.openQuickAdd,
+                                onPressed: onAddTask,
                                 height: 34,
                                 width: compactTopbar ? 34 : null,
                                 padding: compactTopbar

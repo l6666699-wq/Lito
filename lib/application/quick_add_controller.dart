@@ -112,6 +112,7 @@ class QuickAddController extends ChangeNotifier {
   int _submittedCount = 0;
   List<QuickAddTarget> _availableTargets;
   String? _lastProjectId;
+  String? _workspaceProjectId;
   String? _selectedProjectId;
   bool _hasExplicitSelection = false;
   QuickAddControllerBinding? _activeBinding;
@@ -122,6 +123,7 @@ class QuickAddController extends ChangeNotifier {
   bool get isSubmitting => _submitting;
   int get submittedCount => _submittedCount;
   String? get lastProjectId => _lastProjectId;
+  String? get workspaceProjectId => _workspaceProjectId;
   List<QuickAddTarget> get availableTargets => _availableTargets;
   List<QuickAddTarget> get targets => _availableTargets;
   QuickAddTarget get selectedTarget => _resolveSelectedTarget();
@@ -160,6 +162,7 @@ class QuickAddController extends ChangeNotifier {
     final previousSubmit = _onSubmitWithTarget;
     final previousPersist = _onLastProjectChanged;
     final previousLastProjectId = _lastProjectId;
+    final previousWorkspaceProjectId = _workspaceProjectId;
     final previousTargets = _availableTargets;
     final previousSelection = _selectedProjectId;
     final previousExplicitSelection = _hasExplicitSelection;
@@ -167,6 +170,7 @@ class QuickAddController extends ChangeNotifier {
     _onSubmitWithTarget = onSubmitWithTarget;
     _onLastProjectChanged = onLastProjectChanged;
     _lastProjectId = lastProjectId;
+    _workspaceProjectId = null;
     _hasExplicitSelection = false;
     _selectedProjectId = null;
     notifyListeners();
@@ -177,6 +181,7 @@ class QuickAddController extends ChangeNotifier {
       _onSubmitWithTarget = previousSubmit;
       _onLastProjectChanged = previousPersist;
       _lastProjectId = previousLastProjectId;
+      _workspaceProjectId = previousWorkspaceProjectId;
       _availableTargets = previousTargets;
       _selectedProjectId = previousSelection;
       _hasExplicitSelection = previousExplicitSelection;
@@ -195,6 +200,20 @@ class QuickAddController extends ChangeNotifier {
   }
 
   void updateLastProjectId(String? value) => setLastProjectId(value);
+
+  /// Projects opened in the workspace provide the default destination for a
+  /// Quick Add launched from the shared window. This context is deliberately
+  /// separate from [lastProjectId]: an active project scope must win over a
+  /// stale preference, while the explicit target selector still wins over
+  /// both values.
+  void setWorkspaceProjectId(String? projectId) {
+    if (_disposed || _workspaceProjectId == projectId) return;
+    _workspaceProjectId = projectId;
+    if (!_hasExplicitSelection) notifyListeners();
+  }
+
+  void bindWorkspaceProjectId(String? projectId) =>
+      setWorkspaceProjectId(projectId);
 
   /// Replaces the available active targets from a read-only workspace
   /// snapshot.  The inbox is always inserted first and duplicate project IDs
@@ -344,7 +363,7 @@ class QuickAddController extends ChangeNotifier {
   QuickAddTarget _resolveSelectedTarget() {
     final requested = _hasExplicitSelection
         ? _selectedProjectId
-        : _lastProjectId;
+        : _workspaceProjectId ?? _lastProjectId;
     if (requested == null) return _inboxTarget;
     return _targetFor(requested) ?? _inboxTarget;
   }
