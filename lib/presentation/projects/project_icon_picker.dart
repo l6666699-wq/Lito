@@ -84,6 +84,9 @@ class _ProjectIconPickerState extends State<ProjectIconPicker> {
                           horizontal: 0,
                           vertical: 0,
                         ),
+                        inputPadding: const EdgeInsets.symmetric(
+                          vertical: AppMetrics.unit,
+                        ),
                         alignment: Alignment.centerLeft,
                         placeholderAlignment: Alignment.centerLeft,
                         // The picker already provides its own subtle surface;

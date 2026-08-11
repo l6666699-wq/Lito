@@ -679,6 +679,14 @@ void main() {
     expect(decoration.secondaryBorder?.hasBorder ?? false, isFalse);
     expect(decoration.secondaryFocusedBorder?.hasBorder ?? false, isFalse);
 
+    final editableTextFinder = find.descendant(
+      of: inputFinder,
+      matching: find.byType(EditableText),
+    );
+    final inputRect = tester.getRect(inputFinder);
+    final editableTextRect = tester.getRect(editableTextFinder);
+    expect(editableTextRect.center.dy, closeTo(inputRect.center.dy, 0.5));
+
     final inputState = tester.state<ShadInputState>(inputFinder);
     expect(inputState.hasFocus.value, isFalse);
     await tester.tap(inputFinder);
