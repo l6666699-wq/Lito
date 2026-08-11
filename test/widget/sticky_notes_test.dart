@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/app/theme/app_theme.dart';
 import 'package:litetodo/application/app_navigation_controller.dart';
 import 'package:litetodo/application/quick_add_controller.dart';
@@ -89,6 +91,15 @@ void main() {
       find.byKey(const ValueKey<String>('todo-list-builder')),
       findsOneWidget,
     );
+    final headerRect = tester.getRect(
+      find.byKey(const ValueKey<String>('sticky-header')),
+    );
+    final cardRect = tester.getRect(
+      find.byKey(const ValueKey<String>('sticky-list-card')),
+    );
+    expect(headerRect.height, closeTo(60, 0.1));
+    expect(cardRect.left, closeTo(AppMetrics.unit * 2, 0.1));
+    expect(cardRect.top, closeTo(headerRect.bottom + AppMetrics.unit * 2, 0.1));
 
     final rows = workspace.visibleRowsForProject(project.id);
     expect(rows, isNotEmpty);
@@ -113,6 +124,22 @@ void main() {
       find.byKey(ValueKey<String>('sticky-edit-${firstRow.todo.id}')),
       findsOneWidget,
     );
+    final firstRowRect = tester.getRect(
+      find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
+    );
+    expect(
+      firstRowRect.height,
+      closeTo(
+        AppMetrics.todoRowHeight + AppMetrics.unit + AppMetrics.unit / 2,
+        0.1,
+      ),
+    );
+    expect(firstRowRect.left - cardRect.left, closeTo(AppMetrics.unit, 0.1));
+    expect(
+      firstRowRect.top - cardRect.top,
+      closeTo(AppMetrics.unit, 0.1),
+    );
+    expect(headerRect.height / firstRowRect.height, closeTo(1.579, 0.05));
 
     final completedRows = rows
         .where((row) => row.completionState == TodoVisualState.complete)
@@ -139,5 +166,50 @@ void main() {
       workspace.todos.firstWhere((todo) => todo.id == firstRow.todo.id),
       firstRow.todo,
     );
+  });
+
+  testWidgets('sticky header starts native drag on pointer down once', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    final project = workspace.projects.first;
+    final channel = const MethodChannel('litetodo/sticky_windows');
+    final calls = <MethodCall>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(channel, null);
+      workspace.dispose();
+    });
+
+    await tester.pumpWidget(
+      ShadApp(
+        theme: AppTheme.lightFor(),
+        home: StickyNotesWindow(
+          controller: workspace,
+          windowService: StickyNotesSecondaryChannel(channel: channel),
+          projectId: project.id,
+          windowKey: StickyNotesController.keyFor(project.id),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dragRegion = find.byKey(
+      const ValueKey<String>('sticky-header-drag-region'),
+    );
+    final gesture = await tester.startGesture(tester.getCenter(dragRegion));
+    await tester.pump();
+    expect(calls.where((call) => call.method == 'drag'), hasLength(1));
+    await gesture.up();
+
+    await tester.tap(find.byKey(const ValueKey<String>('sticky-close-button')));
+    await tester.pump();
+    expect(calls.where((call) => call.method == 'drag'), hasLength(1));
+    expect(calls.where((call) => call.method == 'close'), hasLength(1));
   });
 }

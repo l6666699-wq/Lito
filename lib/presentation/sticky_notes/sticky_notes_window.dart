@@ -11,6 +11,13 @@ import '../../domain/models/visible_todo_row.dart';
 import '../../infrastructure/platform/sticky_notes_window_service.dart';
 import '../../icons/app_icons.dart';
 
+const _stickyWindowInset = AppMetrics.unit * 2;
+const _stickyListInset = AppMetrics.unit;
+const _stickyHeaderHeight = AppMetrics.headerHeight + AppMetrics.unit * 2;
+const _stickyRowHeight = AppMetrics.todoRowHeight + AppMetrics.unit;
+const _stickyRowGap = AppMetrics.unit / 2;
+const _stickyRowHorizontalPadding = AppMetrics.unit;
+
 /// The content hosted by each native sticky-note engine.
 ///
 /// It intentionally receives a read-only [WorkspaceController] projection in
@@ -58,18 +65,14 @@ class StickyNotesWindow extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppMetrics.compactPadding,
-                    AppMetrics.compactPadding,
-                    AppMetrics.compactPadding,
-                    AppMetrics.compactPadding,
-                  ),
+                  padding: const EdgeInsets.all(_stickyWindowInset),
                   child: DecoratedBox(
+                    key: const ValueKey<String>('sticky-list-card'),
                     decoration: BoxDecoration(
                       color: colors.surface,
                       border: Border.all(color: colors.border),
                       borderRadius: BorderRadius.circular(
-                        AppMetrics.shellCardRadius,
+                        AppMetrics.cardRadius,
                       ),
                     ),
                     child: _StickyTodoList(
@@ -105,6 +108,7 @@ class _StickyHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     return DecoratedBox(
+      key: const ValueKey<String>('sticky-header'),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(
@@ -112,7 +116,7 @@ class _StickyHeader extends StatelessWidget {
         ),
       ),
       child: SizedBox(
-        height: AppMetrics.headerHeight + AppMetrics.unit,
+        height: _stickyHeaderHeight,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppMetrics.compactPadding,
@@ -122,10 +126,10 @@ class _StickyHeader extends StatelessWidget {
               Expanded(
                 child: MouseRegion(
                   cursor: SystemMouseCursors.move,
-                  child: GestureDetector(
+                  child: Listener(
                     key: const ValueKey<String>('sticky-header-drag-region'),
                     behavior: HitTestBehavior.translucent,
-                    onPanStart: (_) =>
+                    onPointerDown: (_) =>
                         unawaited(windowService.startDragging(windowKey)),
                     child: Row(
                       children: [
@@ -239,8 +243,8 @@ class _StickyTodoListState extends State<_StickyTodoList> {
     return ListView.builder(
       key: const ValueKey<String>('todo-list-builder'),
       padding: const EdgeInsets.symmetric(
-        horizontal: AppMetrics.unit * 2,
-        vertical: AppMetrics.unit * 2,
+        horizontal: _stickyListInset,
+        vertical: _stickyListInset,
       ),
       itemCount: widget.rows.length,
       itemBuilder: (context, index) {
@@ -287,9 +291,11 @@ class _StickyTaskRow extends StatelessWidget {
         onTap: onSelect,
         child: AnimatedContainer(
           duration: Duration(milliseconds: AppMetrics.hoverDurationMs.round()),
-          height: AppMetrics.todoRootRowHeight,
-          margin: const EdgeInsets.only(top: AppMetrics.unit),
-          padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
+          height: _stickyRowHeight,
+          margin: const EdgeInsets.only(top: _stickyRowGap),
+          padding: const EdgeInsets.symmetric(
+            horizontal: _stickyRowHorizontalPadding,
+          ),
           decoration: BoxDecoration(
             color: rowBackground,
             border: Border(bottom: BorderSide(color: colors.border)),
