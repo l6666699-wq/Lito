@@ -6,6 +6,7 @@ import 'package:litetodo/application/quick_add_controller.dart';
 import 'package:litetodo/application/sticky_notes_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
+import 'package:litetodo/domain/models/visible_todo_row.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
 import 'package:litetodo/infrastructure/platform/sticky_notes_window_service.dart';
 import 'package:litetodo/icons/app_icons.dart';
@@ -87,6 +88,56 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('todo-list-builder')),
       findsOneWidget,
+    );
+
+    final rows = workspace.visibleRowsForProject(project.id);
+    expect(rows, isNotEmpty);
+    final firstRow = rows.first;
+    expect(
+      find.byKey(ValueKey<String>('sticky-header-drag-region')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey<String>('sticky-drag-handle-${firstRow.todo.id}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey<String>('sticky-checkbox-${firstRow.todo.id}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey<String>('sticky-edit-${firstRow.todo.id}')),
+      findsOneWidget,
+    );
+
+    final completedRows = rows
+        .where((row) => row.completionState == TodoVisualState.complete)
+        .toList();
+    if (completedRows.isNotEmpty) {
+      final completedRow = completedRows.first;
+      final completedTitle = find.descendant(
+        of: find.byKey(
+          ValueKey<String>('sticky-task-row-${completedRow.todo.id}'),
+        ),
+        matching: find.text(completedRow.todo.title),
+      );
+      expect(
+        tester.widget<Text>(completedTitle).style?.decoration,
+        TextDecoration.lineThrough,
+      );
+    }
+
+    await tester.tap(
+      find.byKey(ValueKey<String>('sticky-task-row-${firstRow.todo.id}')),
+    );
+    await tester.pump();
+    expect(
+      workspace.todos.firstWhere((todo) => todo.id == firstRow.todo.id),
+      firstRow.todo,
     );
   });
 }

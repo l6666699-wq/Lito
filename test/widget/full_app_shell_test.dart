@@ -7,12 +7,14 @@ import 'package:litetodo/app/litetodo_app.dart';
 import 'package:litetodo/application/app_navigation_controller.dart';
 import 'package:litetodo/application/quick_add_controller.dart';
 import 'package:litetodo/application/settings_controller.dart';
+import 'package:litetodo/application/sticky_notes_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/app/theme/app_colors.dart';
 import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
+import 'package:litetodo/infrastructure/platform/sticky_notes_window_service.dart';
 import 'package:litetodo/icons/app_icons.dart';
 import 'package:litetodo/icons/project_icon.dart';
 import 'package:litetodo/app/theme/project_palette.dart';
@@ -147,6 +149,91 @@ void main() {
     );
     expect(windows.mode, WindowMode.full);
   });
+
+  testWidgets(
+    'sticky-note entry opens inbox and project without selecting it',
+    (tester) async {
+      final workspace = WorkspaceController();
+      final service = FakeStickyNotesWindowService();
+      addTearDown(workspace.dispose);
+
+      await tester.pumpWidget(
+        LiteTodoApp(controller: workspace, stickyNotesWindowService: service),
+      );
+      await tester.pumpAndSettle();
+
+      final project = workspace.projects.first;
+      final projectFinder = find.byKey(
+        ValueKey<String>('project-${project.id}'),
+      );
+      final stickyFinder = find.byKey(
+        ValueKey<String>('project-sticky-${project.id}'),
+      );
+      final moreFinder = find.byKey(
+        ValueKey<String>('project-more-${project.id}'),
+      );
+      final countFinder = find.descendant(
+        of: projectFinder,
+        matching: find.text(
+          '${workspace.unfinishedCountForProject(project.id)}',
+        ),
+      );
+
+      expect(projectFinder, findsOneWidget);
+      expect(stickyFinder, findsOneWidget);
+      expect(find.byIcon(AppIcons.stickyNotes), findsWidgets);
+      expect(moreFinder, findsOneWidget);
+      expect(countFinder, findsOneWidget);
+
+      final stickyRect = tester.getRect(stickyFinder);
+      final moreRect = tester.getRect(moreFinder);
+      final countRect = tester.getRect(countFinder);
+      final projectRect = tester.getRect(projectFinder);
+      expect(stickyRect.width, closeTo(28, 1));
+      expect(stickyRect.height, closeTo(28, 1));
+      expect(
+        stickyRect.left - countRect.right,
+        greaterThanOrEqualTo(AppMetrics.unit * 2),
+      );
+      expect(
+        moreRect.left - stickyRect.right,
+        greaterThanOrEqualTo(AppMetrics.unit * 2),
+      );
+      expect(
+        projectRect.right - moreRect.right,
+        closeTo(AppMetrics.unit * 2, 1),
+      );
+
+      // The project row starts in the all-todos scope. Clicking the nested
+      // sticky action must not bubble into the row selection handler.
+      expect(workspace.scope, WorkspaceScope.all);
+      expect(workspace.projectScopeId, isNull);
+      await tester.tap(stickyFinder);
+      await tester.pump();
+      expect(workspace.scope, WorkspaceScope.all);
+      expect(workspace.projectScopeId, isNull);
+      expect(
+        service.calls,
+        contains(
+          'open:${StickyNotesController.keyFor(project.id)}:${project.id}',
+        ),
+      );
+      expect(
+        service.openKeys,
+        contains(StickyNotesController.keyFor(project.id)),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('shell-sticky-notes-button')),
+      );
+      await tester.pump();
+      expect(
+        service.calls,
+        contains('open:${StickyNotesController.inboxKey}:'),
+      );
+      expect(service.openKeys, contains(StickyNotesController.inboxKey));
+    },
+  );
 
   for (final size in const <Size>[
     Size(1672, 941),

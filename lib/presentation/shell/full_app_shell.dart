@@ -1384,6 +1384,7 @@ class _ProjectItem extends StatelessWidget {
                 fontSize: 11,
               ),
             ),
+            if (onSticky != null) const SizedBox(width: AppMetrics.unit * 2),
             if (onSticky != null)
               _MoreButton(
                 key: ValueKey<String>('project-sticky-${project.id}'),
@@ -1391,6 +1392,7 @@ class _ProjectItem extends StatelessWidget {
                 icon: AppIcons.stickyNotes,
                 onPressed: onSticky!,
               ),
+            if (onSticky != null) const SizedBox(width: AppMetrics.unit * 2),
             _MoreButton(
               key: ValueKey<String>('project-more-${project.id}'),
               tooltip: '项目操作',
