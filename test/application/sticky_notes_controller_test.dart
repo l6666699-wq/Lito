@@ -59,6 +59,31 @@ void main() {
     );
   });
 
+  test('new sticky windows receive a snapshot before native open', () async {
+    final workspace = WorkspaceController();
+    final service = FakeStickyNotesWindowService();
+    final controller = StickyNotesController(
+      workspace: workspace,
+      windowService: service,
+      settingsProvider: () => AppSettings(themeMode: AppThemeMode.dark),
+    );
+    addTearDown(() {
+      controller.dispose();
+      workspace.dispose();
+    });
+
+    await controller.openInbox();
+
+    expect(service.calls.take(2), <String>[
+      'sync:${StickyNotesController.inboxKey}',
+      'open:${StickyNotesController.inboxKey}:',
+    ]);
+    expect(
+      readStickySnapshotSettings(service.snapshots.values.single)?.themeMode,
+      AppThemeMode.dark,
+    );
+  });
+
   test('settings are included in sticky snapshots', () async {
     final workspace = WorkspaceController();
     final service = FakeStickyNotesWindowService();

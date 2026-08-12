@@ -219,10 +219,8 @@ class _TodoRowState extends State<TodoRow> {
                     widget.onSelect?.call();
                   },
                   onDoubleTap: _beginEdit,
-                  child: AnimatedContainer(
+                  child: Container(
                     key: _dropRegionKey,
-                    duration: AppMotion.instant,
-                    curve: AppMotion.standardCurve,
                     height: rowHeight,
                     margin: EdgeInsets.only(
                       left:
@@ -417,9 +415,7 @@ class _TodoRowState extends State<TodoRow> {
   Widget _hoverActions(BuildContext context, {required List<Widget> actions}) {
     return IgnorePointer(
       ignoring: !_hovered,
-      child: AnimatedOpacity(
-        duration: AppMotion.instant,
-        curve: AppMotion.enterCurve,
+      child: Opacity(
         opacity: _hovered ? 1 : 0,
         child: Row(mainAxisSize: MainAxisSize.min, children: actions),
       ),

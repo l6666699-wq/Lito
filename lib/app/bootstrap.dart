@@ -224,45 +224,33 @@ Future<void> bootstrapStickyNotesWindow(
   final workspace = WorkspaceController();
   final channel = StickyNotesSecondaryChannel();
   final stickySettings = ValueNotifier<AppSettings>(AppSettings());
-  try {
-    final repository = await createDefaultSettingsRepository();
-    stickySettings.value = (await repository.load()).settings;
-  } catch (_) {
-    // The primary engine still sends its live settings snapshot after startup.
+  var receivedSnapshotSettings = false;
+
+  void applySnapshot(String snapshot) {
+    applyStickySnapshot(workspace, snapshot);
+    final settings = readStickySnapshotSettings(snapshot);
+    if (settings != null) {
+      receivedSnapshotSettings = true;
+      stickySettings.value = settings;
+    }
   }
+
   try {
     final snapshot = await channel.readSnapshot(arguments.key);
-    if (snapshot != null) {
-      applyStickySnapshot(workspace, snapshot);
-      final settings = readStickySnapshotSettings(snapshot);
-      if (settings != null) stickySettings.value = settings;
-    }
+    if (snapshot != null) applySnapshot(snapshot);
   } catch (_) {
-    // The first sync from the primary engine can arrive after this isolate's
-    // first frame. The channel listener below fills that small startup gap.
+    // The channel listener below fills the startup gap once primary syncs.
   }
   channel.listen(
     onSnapshot: (snapshot) {
       try {
-        applyStickySnapshot(workspace, snapshot);
-        final settings = readStickySnapshotSettings(snapshot);
-        if (settings != null) stickySettings.value = settings;
+        applySnapshot(snapshot);
       } catch (_) {
         // Ignore malformed/stale snapshots; the next primary revision will
         // retry and the existing projection remains visible.
       }
     },
   );
-  // The primary may sync while this engine is still wiring its first frame;
-  // read the manager's retained snapshot once more after the handler exists.
-  try {
-    final retrySnapshot = await channel.readSnapshot(arguments.key);
-    if (retrySnapshot != null) {
-      applyStickySnapshot(workspace, retrySnapshot);
-      final settings = readStickySnapshotSettings(retrySnapshot);
-      if (settings != null) stickySettings.value = settings;
-    }
-  } catch (_) {}
   runApp(
     StickyNotesSecondaryApp(
       workspace: workspace,
@@ -273,6 +261,37 @@ Future<void> bootstrapStickyNotesWindow(
       settingsListenable: stickySettings,
     ),
   );
+  unawaited(
+    _hydrateStickyNotesWindow(
+      channel: channel,
+      settings: stickySettings,
+      key: arguments.key,
+      hasSnapshotSettings: () => receivedSnapshotSettings,
+      applySnapshot: applySnapshot,
+    ),
+  );
+}
+
+Future<void> _hydrateStickyNotesWindow({
+  required StickyNotesSecondaryChannel channel,
+  required ValueNotifier<AppSettings> settings,
+  required String key,
+  required bool Function() hasSnapshotSettings,
+  required void Function(String snapshot) applySnapshot,
+}) async {
+  // The primary may sync while this engine is wiring its first frame; read the
+  // retained snapshot once more without blocking the initial window paint.
+  try {
+    final retrySnapshot = await channel.readSnapshot(key);
+    if (retrySnapshot != null) applySnapshot(retrySnapshot);
+  } catch (_) {}
+  if (hasSnapshotSettings()) return;
+  try {
+    final repository = await createDefaultSettingsRepository();
+    settings.value = (await repository.load()).settings;
+  } catch (_) {
+    // The primary engine still sends its live settings snapshot after startup.
+  }
 }
 
 /// Installs the primary-engine endpoint for mutations originating in a

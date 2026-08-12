@@ -113,12 +113,17 @@ class StickyNotesController extends ChangeNotifier {
     }
     notifyListeners();
     try {
+      if (existing == null) {
+        await _syncSnapshot(key, notify: false);
+      }
       await windowService.open(
         key: key,
         projectId: projectId,
         groupId: groupId,
       );
-      await _syncSnapshot(key);
+      if (existing != null) {
+        await _syncSnapshot(key);
+      }
     } catch (error) {
       _capabilityWarning = error.toString();
       notifyListeners();
@@ -218,7 +223,7 @@ class StickyNotesController extends ChangeNotifier {
     }
   }
 
-  Future<void> _syncSnapshot(String key) async {
+  Future<void> _syncSnapshot(String key, {bool notify = true}) async {
     if (_disposed || !_instances.containsKey(key)) return;
     final currentSettingsProvider = settingsProvider;
     try {
@@ -234,7 +239,7 @@ class StickyNotesController extends ChangeNotifier {
     } catch (error) {
       _capabilityWarning = error.toString();
     }
-    if (!_disposed) notifyListeners();
+    if (notify && !_disposed) notifyListeners();
   }
 
   void _onWorkspaceChanged() {
