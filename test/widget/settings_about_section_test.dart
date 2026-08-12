@@ -10,9 +10,9 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 void main() {
   test('about metadata stays centralized with the packaged version', () {
-    expect(AppConstants.appVersion, '1.0.0');
+    expect(AppConstants.appVersion, '0.0.1');
     expect(AppConstants.appBuild, '1');
-    expect(AppConstants.appVersionLabel, '1.0.0+1');
+    expect(AppConstants.appVersionLabel, '0.0.1+1');
     expect(AppConstants.technologyLabel, 'Flutter Desktop · Windows');
   });
 
@@ -23,7 +23,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('LiteTodo'), findsOneWidget);
-      expect(find.text('1.0.0+1'), findsOneWidget);
+      expect(find.text('0.0.1+1'), findsOneWidget);
       expect(find.text('Flutter Desktop · Windows'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }

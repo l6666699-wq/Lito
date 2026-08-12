@@ -53,7 +53,8 @@ jobs:
           }
 
           $version = $versionLine.Matches[0].Groups[1].Value.Trim()
-          $safeVersion = $version -replace '\+', '-'
+          $displayVersion = ($version -split '\+')[0]
+          $safeVersion = $displayVersion -replace '[^0-9A-Za-z._-]', '-'
           $artifactName = "LiteTodo-$safeVersion-windows-x64"
 
           "LITETODO_ARTIFACT_NAME=$artifactName" >> $env:GITHUB_ENV

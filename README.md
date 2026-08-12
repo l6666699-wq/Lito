@@ -414,7 +414,7 @@ Release/
 例如：
 
 ```text
-LiteTodo-1.0.0-windows-x64.zip
+LiteTodo-0.0.1-windows-x64.zip
 ```
 
 然后上传到 GitHub Releases。

@@ -414,7 +414,7 @@ directory, not only `litetodo.exe`.
 For example:
 
 ```text
-LiteTodo-1.0.0-windows-x64.zip
+LiteTodo-0.0.1-windows-x64.zip
 ```
 
 Then upload it to GitHub Releases.
