@@ -251,12 +251,16 @@ class StickyNotesSecondaryChannel {
     String? todoId,
     String? title,
     String? projectId,
+    String? targetId,
+    String? position,
   }) async {
     await _channel.invokeMethod<void>('mutate', <String, Object?>{
       'operation': operation,
       'todoId': todoId,
       'title': title,
       'projectId': projectId,
+      'targetId': targetId,
+      'position': position,
     });
   }
 }

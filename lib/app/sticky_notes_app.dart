@@ -45,6 +45,12 @@ class StickyNotesSecondaryApp extends StatelessWidget {
           title: title,
           projectId: projectId,
         ),
+        onReorderTodo: (movingId, targetId, position) => windowService.mutate(
+          operation: 'reorderTodo',
+          todoId: movingId,
+          targetId: targetId,
+          position: position.name,
+        ),
       ),
     );
   }

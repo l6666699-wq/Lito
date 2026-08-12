@@ -8,6 +8,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
 import '../../application/workspace_controller.dart';
 import '../../domain/models/visible_todo_row.dart';
+import '../../domain/services/todo_move_service.dart';
 import '../../infrastructure/platform/sticky_notes_window_service.dart'
     show StickyNotesSecondaryChannel;
 import '../../icons/app_icons.dart';
@@ -19,7 +20,7 @@ const _stickyRowHeight = AppMetrics.todoRowHeight + AppMetrics.unit;
 const _stickyRowGap = AppMetrics.unit / 2;
 const _stickyRowHorizontalPadding = AppMetrics.unit;
 const _stickyControlSize = AppMetrics.iconSize + AppMetrics.unit * 2;
-const _stickyControlGap = AppMetrics.unit / 2;
+const _stickyControlGap = AppMetrics.unit / 4;
 
 /// The content hosted by each native sticky-note engine.
 ///
@@ -37,6 +38,7 @@ class StickyNotesWindow extends StatelessWidget {
     this.onToggleTodoCompleted,
     this.onEditTodoTitle,
     this.onAddTodo,
+    this.onReorderTodo,
   });
 
   final WorkspaceController controller;
@@ -46,6 +48,11 @@ class StickyNotesWindow extends StatelessWidget {
   final FutureOr<void> Function(String todoId)? onToggleTodoCompleted;
   final FutureOr<void> Function(String todoId, String title)? onEditTodoTitle;
   final FutureOr<void> Function(String title)? onAddTodo;
+  final FutureOr<void> Function(
+    String movingId,
+    String targetId,
+    TodoMovePosition position,
+  )? onReorderTodo;
 
   Future<void> _toggleTodoDirectly(String todoId) async {
     controller.toggleTodoCompleted(todoId);
@@ -59,6 +66,15 @@ class StickyNotesWindow extends StatelessWidget {
 
   Future<void> _addTodoDirectly(String title) =>
       controller.addTodoAndFlush(title, projectId: projectId);
+
+  Future<void> _reorderTodoDirectly(
+    String movingId,
+    String targetId,
+    TodoMovePosition position,
+  ) async {
+    controller.moveTodo(movingId, targetId, position);
+    await controller.flushNow();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +123,7 @@ class StickyNotesWindow extends StatelessWidget {
                           onToggleTodoCompleted ?? _toggleTodoDirectly,
                       onEditTodoTitle: onEditTodoTitle ?? _editTodoDirectly,
                       onAddTodo: onAddTodo ?? _addTodoDirectly,
+                      onReorderTodo: onReorderTodo ?? _reorderTodoDirectly,
                     ),
                   ),
                 ),
@@ -253,6 +270,7 @@ class _StickyTodoList extends StatefulWidget {
     required this.parentIds,
     required this.onToggleTodoCompleted,
     required this.onEditTodoTitle,
+    required this.onReorderTodo,
     required this.onAddTodo,
   });
 
@@ -261,6 +279,11 @@ class _StickyTodoList extends StatefulWidget {
   final FutureOr<void> Function(String todoId) onToggleTodoCompleted;
   final FutureOr<void> Function(String todoId, String title) onEditTodoTitle;
   final FutureOr<void> Function(String title) onAddTodo;
+  final FutureOr<void> Function(
+    String movingId,
+    String targetId,
+    TodoMovePosition position,
+  ) onReorderTodo;
 
   @override
   State<_StickyTodoList> createState() => _StickyTodoListState();
@@ -319,6 +342,7 @@ class _StickyTodoListState extends State<_StickyTodoList> {
                       onSelect: () => setState(() => _selectedId = row.todo.id),
                       onToggleTodoCompleted: widget.onToggleTodoCompleted,
                       onEditTodoTitle: widget.onEditTodoTitle,
+                      onReorderTodo: widget.onReorderTodo,
                     );
                   },
                 ),
@@ -387,6 +411,7 @@ class _StickyTaskRow extends StatefulWidget {
     required this.onSelect,
     required this.onToggleTodoCompleted,
     required this.onEditTodoTitle,
+    required this.onReorderTodo,
   });
 
   final VisibleTodoRow row;
@@ -395,6 +420,11 @@ class _StickyTaskRow extends StatefulWidget {
   final VoidCallback onSelect;
   final FutureOr<void> Function(String todoId) onToggleTodoCompleted;
   final FutureOr<void> Function(String todoId, String title) onEditTodoTitle;
+  final FutureOr<void> Function(
+    String movingId,
+    String targetId,
+    TodoMovePosition position,
+  ) onReorderTodo;
 
   @override
   State<_StickyTaskRow> createState() => _StickyTaskRowState();
@@ -408,6 +438,39 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
     debugLabel: 'sticky-inline-editor',
   );
   bool _editing = false;
+  TodoMovePosition? _dropPosition;
+
+  void _setDropPosition(DragTargetDetails<String> details) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox) return;
+    final local = box.globalToLocal(details.offset);
+    final fraction = (local.dy / box.size.height).clamp(0.0, 1.0);
+    final next = fraction < .30
+        ? TodoMovePosition.before
+        : fraction > .70
+        ? TodoMovePosition.after
+        : TodoMovePosition.inside;
+    if (_dropPosition != next) setState(() => _dropPosition = next);
+  }
+
+  void _clearDropPosition() {
+    if (_dropPosition != null) setState(() => _dropPosition = null);
+  }
+
+  void _acceptDrop(String movingId) {
+    final position = _dropPosition;
+    _clearDropPosition();
+    if (position == null || movingId == widget.row.todo.id) return;
+    unawaited(
+      Future<void>.sync(
+        () => widget.onReorderTodo(
+          movingId,
+          widget.row.todo.id,
+          position,
+        ),
+      ),
+    );
+  }
 
   @override
   void didUpdateWidget(covariant _StickyTaskRow oldWidget) {
@@ -487,11 +550,17 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
     return Semantics(
       container: true,
       selected: widget.selected,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onSelect,
-        onDoubleTap: _beginEdit,
-        child: AnimatedContainer(
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) =>
+            details.data != widget.row.todo.id,
+        onMove: _setDropPosition,
+        onLeave: (_) => _clearDropPosition(),
+        onAcceptWithDetails: (details) => _acceptDrop(details.data),
+        builder: (context, candidateData, rejectedData) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onSelect,
+          onDoubleTap: _beginEdit,
+          child: AnimatedContainer(
           duration: Duration(milliseconds: AppMetrics.hoverDurationMs.round()),
           height: _stickyRowHeight,
           margin: const EdgeInsets.only(top: _stickyRowGap),
@@ -499,7 +568,7 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
             horizontal: _stickyRowHorizontalPadding,
           ),
           decoration: BoxDecoration(
-            color: rowBackground,
+            color: _dropPosition == null ? rowBackground : colors.focusSoft,
             border: Border(bottom: BorderSide(color: colors.border)),
             borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
           ),
@@ -561,6 +630,7 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -633,21 +703,36 @@ class _StickyDragAffordance extends StatelessWidget {
     final colors = AppColors.of(context);
     return Semantics(
       key: ValueKey<String>('sticky-drag-handle-$todoId'),
-      enabled: false,
+      button: true,
       label: '拖拽排序',
-      child: SizedBox(
-        width: _stickyControlSize,
-        height: _stickyControlSize,
-        child: Center(
-          child: Icon(
-            AppIcons.dragHandle,
-            size: AppMetrics.iconSize,
-            color: colors.textFaint,
-          ),
+      child: Draggable<String>(
+        data: todoId,
+        maxSimultaneousDrags: 1,
+        feedback: Icon(
+          AppIcons.dragHandle,
+          size: AppMetrics.iconSize,
+          color: colors.focus,
         ),
+        childWhenDragging: Opacity(
+          opacity: .35,
+          child: _buildHandle(colors),
+        ),
+        child: _buildHandle(colors),
       ),
     );
   }
+
+  Widget _buildHandle(AppColorScheme colors) => SizedBox(
+    width: _stickyControlSize,
+    height: _stickyControlSize,
+    child: Center(
+      child: Icon(
+        AppIcons.dragHandle,
+        size: AppMetrics.iconSize,
+        color: colors.textFaint,
+      ),
+    ),
+  );
 }
 
 class _StickyCheckbox extends StatelessWidget {

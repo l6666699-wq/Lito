@@ -10,6 +10,7 @@ import '../application/sticky_notes_controller.dart';
 import '../application/window_controller.dart';
 import '../application/workspace_controller.dart';
 import '../domain/models/app_settings.dart';
+import '../domain/services/todo_move_service.dart';
 import '../infrastructure/logging/app_log_service.dart';
 import '../infrastructure/platform/desktop_window_service.dart';
 import '../infrastructure/platform/data_directory_service.dart';
@@ -305,6 +306,24 @@ void installStickyMutationHandler(WorkspaceController workspace) {
           title,
           projectId: arguments['projectId'] as String?,
         );
+      case 'reorderTodo':
+        final targetId = arguments['targetId'] as String?;
+        final rawPosition = arguments['position'] as String?;
+        TodoMovePosition? position;
+        for (final candidate in TodoMovePosition.values) {
+          if (candidate.name == rawPosition) {
+            position = candidate;
+            break;
+          }
+        }
+        if (todoId == null || targetId == null || position == null) {
+          throw PlatformException(
+            code: 'invalid_mutation',
+            message: 'A moving todo, target todo and position are required.',
+          );
+        }
+        workspace.moveTodo(todoId, targetId, position);
+        await workspace.flushNow();
       default:
         throw PlatformException(
           code: 'unknown_mutation',

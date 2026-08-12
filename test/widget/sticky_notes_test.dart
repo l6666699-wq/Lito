@@ -9,6 +9,7 @@ import 'package:litetodo/application/sticky_notes_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/domain/models/visible_todo_row.dart';
+import 'package:litetodo/domain/services/todo_move_service.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
 import 'package:litetodo/infrastructure/platform/sticky_notes_window_service.dart';
 import 'package:litetodo/icons/app_icons.dart';
@@ -265,6 +266,12 @@ void main() {
             title: title,
             projectId: project.id,
           ),
+          onReorderTodo: (movingId, targetId, position) => stickyChannel.mutate(
+            operation: 'reorderTodo',
+            todoId: movingId,
+            targetId: targetId,
+            position: position.name,
+          ),
         ),
       ),
     );
@@ -274,9 +281,29 @@ void main() {
       ValueKey<String>('sticky-drag-handle-${firstRow.todo.id}'),
     );
     expect(dragHandle, findsOneWidget);
-    final dragGesture = await tester.startGesture(tester.getCenter(dragHandle));
-    await dragGesture.up();
-    await tester.pump(const Duration(milliseconds: 300));
+    expect(rows.length, greaterThan(1));
+    final targetRow = rows[1];
+    final target = find.byKey(
+      ValueKey<String>('sticky-task-row-${targetRow.todo.id}'),
+    );
+    final sourceCenter = tester.getCenter(dragHandle);
+    final targetRect = tester.getRect(target);
+    await tester.dragFrom(
+      sourceCenter,
+      targetRect.center - sourceCenter + Offset(0, targetRect.height * .4),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, hasLength(1));
+    expect(calls.single.method, 'mutate');
+    final reorderArguments = calls.single.arguments as Map<Object?, Object?>;
+    expect(reorderArguments['operation'], 'reorderTodo');
+    expect(reorderArguments['todoId'], firstRow.todo.id);
+    expect(reorderArguments['targetId'], targetRow.todo.id);
+    expect(
+      reorderArguments['position'],
+      isIn(<String>[TodoMovePosition.before.name, TodoMovePosition.inside.name, TodoMovePosition.after.name]),
+    );
+    calls.clear();
 
     await tester.tap(
       find.byKey(ValueKey<String>('sticky-checkbox-${firstRow.todo.id}')),
