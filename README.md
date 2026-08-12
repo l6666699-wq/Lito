@@ -1,112 +1,423 @@
 # LiteTodo
 
-LiteTodo 是一款适合 Windows 桌面使用的本地待办工具。它把任务整理成项目、分组和树形清单，让你可以把一件大事拆成多层小任务，并且不用注册账号、不依赖服务器，数据保存在自己的电脑里。
+### 简单、轻量、本地优先的 Windows 桌面待办工具
 
-它适合这些场景：
+**把复杂的事情拆简单，把所有待办留在自己的电脑里。**
 
-- 个人日程、学习计划、工作任务、项目拆解。
-- 想要一个轻量工具，但又不想把待办事项同步到云端。
-- 喜欢用树形结构整理任务，而不是只写一长串清单。
-- 需要快速记录临时想法，再回到完整窗口慢慢整理。
+项目管理 · 多级子任务 · QuickAdd · 紧凑模式 · 本地存储 · 数据备份
 
-## 你可以用它做什么
+![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)
+![Flutter](https://img.shields.io/badge/Flutter-Desktop-02569B?logo=flutter&logoColor=white)
+![Local First](https://img.shields.io/badge/Data-Local%20First-2EA043)
+![License](https://img.shields.io/badge/License-See%20Repository-lightgrey)
 
-- **按项目管理任务**：把不同事情分到不同项目里，避免所有待办混在一起。
-- **拆分多级任务**：每个 Todo 都可以继续拆成子任务，最多支持 6 层。
-- **快速添加待办**：通过 QuickAdd 模式快速记下一条任务，不打断当前工作。
-- **整理和恢复**：支持拖拽移动、撤销/重做、回收站恢复和清空确认。
-- **本地备份数据**：支持导入、导出、备份和异常恢复，方便迁移或留档。
-- **贴合桌面使用**：支持窗口置顶、紧凑模式、系统托盘、全局快捷键和开机启动。
-- **查看任务统计**：通过统计页了解任务完成情况和近期节奏。
+------
 
-## 项目截图
+## ✨ 关于 LiteTodo
 
-目前仓库还没有放入运行截图。想在 README 中展示项目运行图片时，推荐这样做：
+LiteTodo 是一款为 **Windows 桌面**设计的本地待办工具。
 
-1. 运行 LiteTodo，截取首页、快速添加、设置页或统计页等关键画面。
-2. 在项目里新建图片目录，例如 `docs/images/`。
-3. 把截图放进去，建议使用英文文件名，例如：
+它没有账号体系，没有云同步，也不需要连接服务器。
 
-```text
-docs/images/home.png
-docs/images/quick-add.png
-docs/images/settings.png
-```
+你可以把任务按照 **项目 → Todo → 子任务** 的方式逐层拆解，用树形结构整理学习计划、工作任务、个人项目以及生活中的各种事情。
 
-4. 在 README 的“项目截图”下面加入 Markdown 图片语法：
+所有数据默认保存在你的电脑中。
 
-```md
-![LiteTodo 首页](docs/images/home.png)
-![QuickAdd 快速添加](docs/images/quick-add.png)
-![设置页](docs/images/settings.png)
-```
+> **LiteTodo 想做的不是另一个复杂的任务管理平台，而是一款打开就能用、用完不会打扰你的桌面工具。**
 
-如果图片已经上传到 GitHub，使用这种相对路径就可以正常显示。建议截图宽度保持在 1200px 到 1600px 左右，既清晰，也不会让仓库变得太大。
+------
 
-## 如何开始使用
+## 📸 界面预览
 
-LiteTodo 目前面向 Windows 10/11 x64。项目产物是便携版应用，不需要安装器。
+> 项目正在持续完善中，正式运行截图将在后续版本补充。
 
-如果你已经拿到了发布包：
+------
 
-1. 解压 `LiteTodo-1.0.0-windows-x64.zip`。
-2. 打开解压后的目录。
-3. 双击运行 `litetodo.exe`。
+## 🌟 为什么是 LiteTodo？
 
-如果你是从源码运行，请先安装 Flutter stable，然后执行：
+很多待办工具最终都会慢慢变成：
 
-```bash
-flutter pub get
-flutter run -d windows
-```
+账号、团队、订阅、云同步、日历、聊天、AI、消息中心……
 
-构建 Windows 便携版：
+然后一个本来只想记下「明天交作业」的人，莫名其妙拥有了一整套企业协作系统。
 
-```bash
-flutter build windows --release
-```
+LiteTodo 选择另一条路。
 
-构建完成后，可执行文件位于：
+### 🌲 用树形结构拆解任务
+
+一件复杂的事情通常不是一个 Todo。
+
+在 LiteTodo 中，每个任务都可以继续创建子任务，最多支持 **6 层任务结构**。
 
 ```text
-build/windows/x64/runner/Release/litetodo.exe
+完成新版本发布
+├─ 完成首页
+│  ├─ 调整任务列表
+│  └─ 优化空状态
+├─ 完成设置页面
+│  ├─ 主题设置
+│  └─ 字体设置
+└─ 发布
+   ├─ Release Build
+   └─ GitHub Release
 ```
 
-发布时可以把 `build/windows/x64/runner/Release` 整个目录压缩成 ZIP，上传到 GitHub Releases，方便其他人下载使用。
+不用把所有事情挤在一条长长的清单里。
 
-## 数据和隐私
+------
 
-LiteTodo 是本地优先应用：
+### ⚡ QuickAdd，想到就记
 
-- 不需要登录账号。
-- 不依赖服务器或网络服务。
-- 待办、项目、设置、备份和日志都保存在本机。
-- 默认使用系统应用数据目录。
+临时想到一件事情时，不需要完整打开主窗口。
 
-如果你想指定数据保存位置，可以通过 `LITETODO_DATA_DIR` 设置数据目录：
+使用 **QuickAdd** 可以快速记录任务：
+
+```text
+按下快捷键
+↓
+输入任务
+↓
+Enter
+↓
+继续原来的工作
+```
+
+减少一次记录待办对当前工作的打断。
+
+------
+
+### 🪟 为桌面使用而设计
+
+LiteTodo 不是网页套壳式的任务列表，而是围绕 Windows 桌面使用场景设计。
+
+支持：
+
+- Full 完整模式
+- Compact 紧凑模式
+- QuickAdd 快速添加模式
+- 窗口置顶
+- 系统托盘
+- 全局快捷键
+- 开机启动
+
+你可以让它成为一个普通应用，也可以让它安静地待在桌面边缘。
+
+------
+
+### 🔒 Local First
+
+LiteTodo 默认不会把你的任务发送到任何服务器。
+
+```text
+你的任务
+   ↓
+LiteTodo
+   ↓
+本地 JSON 文件
+```
+
+没有：
+
+- ❌ 注册账号
+- ❌ 云端数据库
+- ❌ 后台服务器
+- ❌ 强制联网
+- ❌ 用户行为上传
+- ❌ 多人协作系统
+
+数据属于你，而不是某个账号。
+
+------
+
+### 💾 数据可以带走
+
+本地存储并不意味着数据只能困在一台电脑里。
+
+LiteTodo 支持：
+
+- 数据导出
+- 数据导入
+- 自动备份
+- 上一版本数据恢复
+- 异常恢复
+- 自定义数据目录
+
+换电脑或者重装系统时，可以直接迁移自己的数据。
+
+------
+
+## 🧩 核心功能
+
+| 功能           | 说明                                 |
+| -------------- | ------------------------------------ |
+| 📁 项目管理     | 不同工作、学习和生活事项可以分别管理 |
+| 🌲 多级任务     | Todo 最多支持 6 层子任务             |
+| 🖱️ 拖拽整理     | 调整任务顺序和所属层级               |
+| ⚡ QuickAdd     | 快捷记录临时任务                     |
+| ↩️ 撤销 / 重做  | 降低误操作成本                       |
+| 🗑️ 回收站       | 删除任务后仍可恢复                   |
+| 📊 任务统计     | 查看完成数量与近期完成节奏           |
+| 📌 窗口置顶     | 工作时保持任务列表可见               |
+| 🪟 紧凑模式     | 使用更小窗口展示当前任务             |
+| ⌨️ 全局快捷键   | 不切换应用即可快速呼出               |
+| 🚀 开机启动     | 登录 Windows 后自动运行              |
+| 💾 本地备份     | 自动保存和恢复重要数据               |
+| 📦 数据导入导出 | 方便迁移与存档                       |
+| 🎨 个性设置     | 支持主题色与字体设置                 |
+
+------
+
+## 🎯 LiteTodo 适合谁？
+
+### 学习
+
+把一个长期目标拆成每天真正可以完成的小任务。
+
+```text
+准备考试
+├─ 数学
+│  ├─ 第一章
+│  └─ 第二章
+├─ 英语
+│  ├─ 单词
+│  └─ 阅读
+└─ 政治
+```
+
+### 开发 / 工作
+
+把一个功能拆成设计、开发、测试和发布。
+
+```text
+用户登录
+├─ UI
+├─ API
+├─ 状态管理
+├─ 异常处理
+└─ 测试
+```
+
+### 个人计划
+
+旅行、装修、购物、阅读计划、长期目标……
+
+任何可以拆解的事情，都可以整理成一棵任务树。
+
+------
+
+## 🚀 开始使用
+
+### 系统要求
+
+目前优先支持：
+
+```text
+Windows 10 x64
+Windows 11 x64
+```
+
+------
+
+### 使用发布版本
+
+LiteTodo 采用 **便携版** 发布，不需要安装器。
+
+下载 Release 后：
+
+```text
+LiteTodo-x.x.x-windows-x64.zip
+```
+
+解压，然后运行：
+
+```text
+litetodo.exe
+```
+
+即可开始使用。
+
+无需注册。
+
+无需配置服务器。
+
+无需数据库。
+
+------
+
+## 🗂️ 数据保存在哪里？
+
+LiteTodo 默认使用 Windows 应用数据目录保存数据。
+
+主要文件包括：
+
+```text
+data.json
+settings.json
+data.prev.json
+
+backups/
+logs/
+```
+
+其中：
+
+- `data.json`：项目与任务数据
+- `settings.json`：应用设置
+- `data.prev.json`：上一版本数据
+- `backups/`：自动备份
+- `logs/`：运行日志
+
+------
+
+## 📂 自定义数据目录
+
+如果希望将数据保存到指定目录，可以设置：
+
+```powershell
+$env:LITETODO_DATA_DIR = "D:\LiteTodoData"
+```
+
+然后运行 LiteTodo。
+
+开发环境：
 
 ```powershell
 $env:LITETODO_DATA_DIR = "D:\LiteTodoData"
 flutter run -d windows
 ```
 
-常见数据文件包括：
+这也意味着你可以把数据目录放在：
 
 ```text
-data.json
-settings.json
-data.prev.json
-backups/
-logs/
+D:\LiteTodoData
 ```
 
-## 适合谁
+或者自己的同步盘目录中。
 
-LiteTodo 更适合个人使用，而不是团队协作平台。它不做账号、云同步、多人共享、复杂提醒或移动端同步，重点是让你在自己的 Windows 电脑上稳定、快速地管理任务。
+LiteTodo 本身依然不会主动提供云同步服务。
 
-## 开发者说明
+------
 
-常用检查命令：
+## 🔐 隐私
+
+LiteTodo 是一款 **Local First** 应用。
+
+默认情况下：
+
+**LiteTodo 不需要知道你是谁，也不需要知道你写了什么。**
+
+你的：
+
+- Todo
+- 项目
+- 设置
+- 备份
+- 日志
+
+都保存在本机。
+
+项目不会因为“方便统计”就顺手把你的待办上传到某个遥远服务器。这个行业已经有足够多东西这么干了。
+
+------
+
+## 🏗️ 技术栈
+
+LiteTodo 使用 Flutter Desktop 构建。
+
+```text
+Flutter
+├─ Windows Desktop
+├─ Vue?      ×
+├─ Electron? ×
+└─ Server?   ×
+```
+
+核心技术方向：
+
+- Flutter Desktop
+- Dart
+- Windows Native Desktop
+- 本地 JSON 数据存储
+- 单窗口多模式复用
+- 本地备份与恢复
+
+应用中的：
+
+```text
+Full
+Compact
+QuickAdd
+```
+
+并不是三个独立应用，而是复用同一个 Flutter 桌面窗口。
+
+------
+
+## 🧑‍💻 从源码运行
+
+首先安装：
+
+```text
+Flutter Stable
+Windows Desktop Development Environment
+Visual Studio C++ Desktop Development Tools
+```
+
+克隆项目后执行：
+
+```bash
+flutter pub get
+```
+
+启动 Windows 版本：
+
+```bash
+flutter run -d windows
+```
+
+------
+
+## 📦 构建 Windows Release
+
+执行：
+
+```bash
+flutter build windows --release
+```
+
+构建结果位于：
+
+```text
+build/windows/x64/runner/Release/
+```
+
+主程序：
+
+```text
+build/windows/x64/runner/Release/litetodo.exe
+```
+
+发布时应将整个：
+
+```text
+Release/
+```
+
+目录打包，而不是只复制 `litetodo.exe`。
+
+例如：
+
+```text
+LiteTodo-1.0.0-windows-x64.zip
+```
+
+然后上传到 GitHub Releases。
+
+------
+
+## 🧪 开发检查
+
+提交代码前建议执行：
 
 ```bash
 dart format --set-exit-if-changed .
@@ -114,15 +425,92 @@ flutter analyze
 flutter test --concurrency=1
 ```
 
-核心约束：
+确保：
 
-- Flutter Desktop，优先支持 Windows 10/11 x64。
-- 单 Flutter 窗口复用 Full、Compact、QuickAdd 三种模式。
-- 数据使用本地 JSON 文件保存。
-- 不引入账号、服务端、数据库或云同步。
+```text
+Format ✓
+Analyze ✓
+Test ✓
+```
 
-更多开发记录见：
+------
 
-- [开发进度](docs/progress.md)
-- [项目定稿开发文档](docs/LiteTodo_Flutter_项目定稿开发文档.md)
-- [第三方许可说明](THIRD_PARTY_NOTICES.md)
+## 🧭 项目原则
+
+LiteTodo 会尽量坚持几个原则。
+
+### 1. 本地优先
+
+任务数据首先属于用户自己的电脑。
+
+### 2. 简单优先
+
+能用一个明确操作完成的事情，不设计三层弹窗。
+
+### 3. 桌面优先
+
+优先考虑鼠标、键盘、快捷键以及桌面窗口体验。
+
+### 4. 数据安全优先
+
+修改数据结构时必须考虑：
+
+```text
+Migration
+Backup
+Rollback
+Recovery
+```
+
+而不是一句：
+
+> 应该不会出问题。
+
+### 5. 不为功能数量而增加功能
+
+LiteTodo 不追求功能列表有多长。
+
+真正重要的是：
+
+> **打开足够快，记录足够快，整理足够舒服。**
+
+------
+
+## 🚫 LiteTodo 不准备做什么
+
+至少目前，LiteTodo 不计划成为：
+
+- 团队协作平台
+- 企业项目管理系统
+- 聊天工具
+- 云笔记平台
+- 社交应用
+- 多人共享 Todo
+- 强制账号体系
+- 订阅制 SaaS
+
+它首先是一款：
+
+> **属于你自己的 Windows 桌面 Todo。**
+
+------
+
+## 📚 项目文档
+
+更多开发资料：
+
+- [开发进度](https://chatgpt.com/g/g-p-6a7145f86c4081919824ddc17fcfb333/c/docs/progress.md)
+- [LiteTodo Flutter 项目定稿开发文档](https://chatgpt.com/g/g-p-6a7145f86c4081919824ddc17fcfb333/c/docs/LiteTodo_Flutter_项目定稿开发文档.md)
+- [第三方许可说明](https://chatgpt.com/g/g-p-6a7145f86c4081919824ddc17fcfb333/c/THIRD_PARTY_NOTICES.md)
+
+------
+
+## LiteTodo
+
+**Less cloud. Less noise. More done.**
+
+简单一点。
+
+专注一点。
+
+把事情做完。

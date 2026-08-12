@@ -12,6 +12,25 @@
 .swiftpm/
 migrate_working_dir/
 
+# Project docs
+/docs/*.md
+/docs/**/*.md
+
+# Local app data
+/data.json
+/settings.json
+/data.prev.json
+/backups/
+/logs/
+
+# Local Codex instructions
+/AGENTS.md
+/CODEX_START_PROMPT.md
+/THIRD_PARTY_NOTICES.md
+
+# Local reference assets
+/UI参考/
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -32,6 +51,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/windows/flutter/ephemeral/
 
 # Symbolication related
 app.*.symbols

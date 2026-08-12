@@ -52,9 +52,9 @@ class WindowLayout {
   );
 
   static const quickAdd = WindowLayout(
-    size: Size(420, 128),
-    minimumSize: Size(360, 112),
-    maximumSize: Size(640, 180),
+    size: Size(620, 204),
+    minimumSize: Size(460, 196),
+    maximumSize: Size(760, 240),
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -98,7 +98,7 @@ abstract interface class DesktopWindowService {
   String? get capabilityWarning;
 
   Future<void> initialize();
-  Future<void> configure(WindowLayout layout);
+  Future<void> configure(WindowLayout layout, {WindowGeometry? geometry});
   Future<void> show({bool focus = true});
   Future<void> hide();
   Future<void> focus();
@@ -161,14 +161,25 @@ class WindowsDesktopWindowService
   }
 
   @override
-  Future<void> configure(WindowLayout layout) async {
+  Future<void> configure(
+    WindowLayout layout, {
+    WindowGeometry? geometry,
+  }) async {
     if (!Platform.isWindows) return;
     // Lower/raise constraints before changing size. Windows clamps SetWindowPos
     // against the previous minimum, which would otherwise leave Compact at
     // Full's 680px minimum or QuickAdd at Compact's 360px minimum.
     await windowManager.setMinimumSize(layout.minimumSize);
     await windowManager.setMaximumSize(layout.maximumSize);
-    await windowManager.setSize(layout.size);
+    if (geometry == null) {
+      await windowManager.setSize(layout.size);
+    } else {
+      await windowManager.setBounds(
+        null,
+        position: geometry.position,
+        size: geometry.size,
+      );
+    }
     await windowManager.setResizable(layout.resizable);
     await windowManager.setAlwaysOnTop(layout.alwaysOnTop);
     await windowManager.setSkipTaskbar(layout.skipTaskbar);
@@ -376,9 +387,14 @@ class FakeDesktopWindowService implements DesktopWindowService {
   }
 
   @override
-  Future<void> configure(WindowLayout layout) async {
+  Future<void> configure(
+    WindowLayout layout, {
+    WindowGeometry? geometry,
+  }) async {
     calls.add('configure:${layout.size.width}x${layout.size.height}');
-    geometry = WindowGeometry(position: geometry.position, size: layout.size);
+    this.geometry =
+        geometry ??
+        WindowGeometry(position: this.geometry.position, size: layout.size);
     await setResizable(layout.resizable);
     await setAlwaysOnTop(layout.alwaysOnTop);
     await setSkipTaskbar(layout.skipTaskbar);

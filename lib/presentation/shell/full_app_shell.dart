@@ -18,6 +18,7 @@ import '../../application/workspace_controller.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
 import '../../domain/models/project.dart';
+import '../common/brand_logo.dart';
 import '../home/home_page.dart';
 import '../projects/project_management.dart';
 import '../settings/settings_page.dart';
@@ -1062,27 +1063,13 @@ class _SidebarBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
     return SizedBox(
       height: AppMetrics.topbarHeight,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 4),
         child: Row(
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colors.focus,
-                borderRadius: BorderRadius.circular(AppMetrics.buttonRadius),
-              ),
-              child: const Icon(
-                AppIcons.check,
-                color: Color(0xFFFFFFFF),
-                size: 17,
-              ),
-            ),
+            const BrandLogo(),
             const SizedBox(width: AppMetrics.unit * 2),
             const Expanded(
               child: Text(

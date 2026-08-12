@@ -65,9 +65,14 @@ void main() {
     final tray = FakeSystemTrayService();
     final received = <TrayAction>[];
     await tray.initialize((action) async => received.add(action));
+    await tray.tapIcon();
     await tray.tap(TrayAction.open);
     await tray.tap(TrayAction.quickAdd);
-    expect(received, <TrayAction>[TrayAction.open, TrayAction.quickAdd]);
+    expect(received, <TrayAction>[
+      TrayAction.open,
+      TrayAction.open,
+      TrayAction.quickAdd,
+    ]);
     await tray.dispose();
     expect(tray.disposed, isTrue);
   });

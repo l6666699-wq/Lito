@@ -23,11 +23,14 @@ class _FailingRestoreDesktopService extends FakeDesktopWindowService {
   bool failFullRestore = false;
 
   @override
-  Future<void> configure(WindowLayout layout) async {
+  Future<void> configure(
+    WindowLayout layout, {
+    WindowGeometry? geometry,
+  }) async {
     if (failFullRestore && layout.size == WindowLayout.full.size) {
       throw StateError('controlled window restore failure');
     }
-    await super.configure(layout);
+    await super.configure(layout, geometry: geometry);
   }
 }
 

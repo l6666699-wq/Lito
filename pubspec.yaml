@@ -68,6 +68,7 @@ dev_dependencies:
 flutter:
 
   assets:
+    - assets/logo.png
     - assets/icons/app/litetodo.ico
     - assets/icons/iconpark/
 

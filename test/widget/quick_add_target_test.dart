@@ -122,6 +122,44 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('Quick Add fits its native hotkey window heights', (
+    tester,
+  ) async {
+    final sizes = <Size>[
+      WindowLayout.quickAdd.minimumSize,
+      WindowLayout.quickAdd.size,
+    ];
+    for (final size in sizes) {
+      await tester.binding.setSurfaceSize(size);
+      final window = WindowController(
+        desktopService: FakeDesktopWindowService(),
+      );
+      final controller = QuickAddController(
+        windowController: window,
+        availableTargets: <QuickAddTarget>[
+          const QuickAddTarget.inbox(),
+          _project('p1', 'Project One'),
+          _project('p2', 'Project Two'),
+        ],
+      );
+      await tester.pumpWidget(
+        ShadApp(
+          theme: AppTheme.light,
+          home: SizedBox(
+            width: size.width,
+            height: size.height,
+            child: QuickAddView(controller: controller),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'size $size');
+      controller.dispose();
+      window.dispose();
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('Quick Add narrow errors stay constrained and ellipsized', (
     tester,
   ) async {

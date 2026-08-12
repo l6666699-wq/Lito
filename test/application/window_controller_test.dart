@@ -62,7 +62,7 @@ void main() {
 
     expect(
       desktop.geometry,
-      const WindowGeometry(position: Offset(850, 676), size: Size(420, 128)),
+      const WindowGeometry(position: Offset(750, 638), size: Size(620, 204)),
     );
   });
 
@@ -78,11 +78,19 @@ void main() {
     expect(controller.isHidden, isFalse);
     expect(controller.previousMode, WindowMode.compact);
 
+    desktop.calls.clear();
     await controller.cancelQuickAdd();
     expect(controller.mode, WindowMode.compact);
     expect(controller.state, WindowLifecycleState.hiddenToTray);
     expect(controller.isHidden, isTrue);
     expect(desktop.visible, isFalse);
+    final hideIndex = desktop.calls.indexOf('hide');
+    final restoreIndex = desktop.calls.indexWhere(
+      (call) => call == 'configure:340.0x520.0',
+    );
+    expect(hideIndex, isNonNegative);
+    expect(restoreIndex, isNonNegative);
+    expect(hideIndex, lessThan(restoreIndex));
   });
 
   test(

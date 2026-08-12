@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:tray_manager/tray_manager.dart';
@@ -212,13 +213,18 @@ class WindowsSystemTrayService
   }
 
   @override
-  void onTrayIconMouseDown() {}
+  void onTrayIconMouseDown() {
+    final handler = _handler;
+    if (handler != null) unawaited(handler(TrayAction.open));
+  }
 
   @override
   void onTrayIconMouseUp() {}
 
   @override
-  void onTrayIconRightMouseDown() {}
+  void onTrayIconRightMouseDown() {
+    unawaited(trayManager.popUpContextMenu());
+  }
 
   @override
   void onTrayIconRightMouseUp() {}
@@ -281,4 +287,6 @@ class FakeSystemTrayService
     actions.add(action);
     await _handler?.call(action);
   }
+
+  Future<void> tapIcon() => tap(TrayAction.open);
 }

@@ -12,6 +12,7 @@ import '../../domain/models/project.dart';
 import '../../domain/models/visible_todo_row.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
+import '../common/brand_logo.dart';
 import '../todo/todo_list.dart';
 
 class FullWorkspace extends StatelessWidget {
@@ -86,7 +87,7 @@ class _WorkspaceHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const _BrandMark(),
+              const BrandLogo(size: 22),
               const SizedBox(width: 10),
               const Text(
                 AppConstants.appName,
@@ -226,26 +227,6 @@ class _WindowButton extends StatelessWidget {
       child: icon == null
           ? Text(label!, style: const TextStyle(fontSize: 11))
           : Icon(icon, size: 14),
-    );
-  }
-}
-
-class _BrandMark extends StatelessWidget {
-  const _BrandMark();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    return Container(
-      width: 22,
-      height: 22,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: colors.focusSoft,
-        borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-        border: Border.all(color: colors.focus.withValues(alpha: .22)),
-      ),
-      child: Icon(AppIcons.check, color: colors.focus, size: 15),
     );
   }
 }

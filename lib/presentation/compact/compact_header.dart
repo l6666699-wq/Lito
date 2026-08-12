@@ -8,6 +8,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
 import '../../application/window_controller.dart';
 import '../../icons/app_icons.dart';
+import '../common/brand_logo.dart';
 
 class CompactHeader extends StatelessWidget {
   const CompactHeader({super.key, required this.windowController});
@@ -28,16 +29,7 @@ class CompactHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: colors.focusSoft,
-                  borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-                ),
-                child: Icon(AppIcons.check, color: colors.focus, size: 15),
-              ),
+              const BrandLogo(size: 22),
               const SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(

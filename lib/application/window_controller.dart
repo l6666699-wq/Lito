@@ -462,14 +462,20 @@ class WindowController extends ChangeNotifier {
     final wasHidden = _hiddenBeforeQuickAdd;
     _previousMode = null;
     _hiddenBeforeQuickAdd = false;
-    _mode = restoreMode;
-    _hidden = false;
-    await _applyMode(restoreMode);
     if (wasHidden) {
       _hidden = true;
       await _desktop.hide();
+      _mode = restoreMode;
+      await _applyMode(restoreMode);
     } else if (!_deferShow) {
+      _mode = restoreMode;
+      _hidden = false;
+      await _applyMode(restoreMode);
       await _desktop.show();
+    } else {
+      _mode = restoreMode;
+      _hidden = false;
+      await _applyMode(restoreMode);
     }
     notifyListeners();
   }
@@ -769,7 +775,21 @@ class WindowController extends ChangeNotifier {
     bool restoreGeometry = true,
   }) async {
     final layout = WindowLayout.forMode(mode);
-    await _desktop.configure(layout);
+    WindowGeometry? quickAddGeometry;
+    if (mode == WindowMode.quickAdd) {
+      final bounds = await _readVisibleBounds();
+      if (bounds != null && !bounds.isEmpty) {
+        final size = layout.size;
+        quickAddGeometry = WindowGeometry(
+          position: Offset(
+            bounds.left + (bounds.width - size.width) / 2,
+            bounds.top + (bounds.height - size.height) / 2,
+          ),
+          size: size,
+        );
+      }
+    }
+    await _desktop.configure(layout, geometry: quickAddGeometry);
     _alwaysOnTop = switch (mode) {
       WindowMode.quickAdd => true,
       WindowMode.compact => _compactAlwaysOnTop,
@@ -782,19 +802,6 @@ class WindowController extends ChangeNotifier {
     };
     await _desktop.setAlwaysOnTop(_alwaysOnTop);
     await _desktop.setSkipTaskbar(_skipTaskbar);
-    if (mode == WindowMode.quickAdd) {
-      final bounds = await _readVisibleBounds();
-      if (bounds != null && !bounds.isEmpty) {
-        final size = layout.size;
-        final position = Offset(
-          bounds.left + (bounds.width - size.width) / 2,
-          bounds.top + (bounds.height - size.height) / 2,
-        );
-        await _desktop.writeGeometry(
-          WindowGeometry(position: position, size: size),
-        );
-      }
-    }
     final geometry = restoreGeometry && _rememberWindowPosition
         ? _geometries[mode]
         : null;
