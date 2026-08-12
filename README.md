@@ -29,7 +29,11 @@ LiteTodo 是一款为 **Windows 桌面**设计的本地待办工具。
 
 ## 📸 界面预览
 
-> 项目正在持续完善中，正式运行截图将在后续版本补充。
+![LiteTodo 首页](docs/images/home.png)
+
+![QuickAdd 快速添加](docs/images/quick-add.png)
+
+![设置页](docs/images/settings.png)
 
 ------
 
