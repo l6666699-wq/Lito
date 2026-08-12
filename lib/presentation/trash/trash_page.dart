@@ -12,7 +12,6 @@ import '../../domain/models/trash_item.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
 import '../../app/theme/project_palette.dart';
-import '../common/app_dialog.dart';
 
 /// The local recycle bin.  Trash is intentionally a real workspace route:
 /// entries are read from [WorkspaceController], not from a presentation-only
@@ -27,10 +26,13 @@ class TrashPage extends StatefulWidget {
   State<TrashPage> createState() => _TrashPageState();
 }
 
+enum _TrashFilter { all, todo, project }
+
 class _TrashPageState extends State<TrashPage> {
   String? _statusMessage;
   bool _statusIsError = false;
   bool _busy = false;
+  _TrashFilter _filter = _TrashFilter.all;
 
   WorkspaceController get controller => widget.controller;
 
@@ -101,6 +103,34 @@ class _TrashPageState extends State<TrashPage> {
           listenable: controller,
           builder: (context, child) {
             final items = controller.trash;
+            final entries = [
+              for (final item in items)
+                _TrashEntry(
+                  item: item,
+                  record: _TrashRecord.from(item, controller),
+                ),
+            ];
+            final taskCount = entries
+                .where((entry) => !entry.record.isProject)
+                .length;
+            final projectCount = entries
+                .where((entry) => entry.record.isProject)
+                .length;
+            final effectiveFilter = _availableFilter(
+              _filter,
+              allCount: entries.length,
+              taskCount: taskCount,
+              projectCount: projectCount,
+            );
+            final visibleEntries = entries
+                .where((entry) {
+                  return switch (effectiveFilter) {
+                    _TrashFilter.all => true,
+                    _TrashFilter.todo => !entry.record.isProject,
+                    _TrashFilter.project => entry.record.isProject,
+                  };
+                })
+                .toList(growable: false);
             final headerSliver = SliverPadding(
               padding: const EdgeInsets.fromLTRB(
                 AppMetrics.pagePadding,
@@ -114,6 +144,12 @@ class _TrashPageState extends State<TrashPage> {
                     colors: colors,
                     narrow: narrow,
                     itemCount: items.length,
+                    taskCount: taskCount,
+                    projectCount: projectCount,
+                    selectedFilter: effectiveFilter,
+                    onFilterChanged: (filter) => setState(() {
+                      _filter = filter;
+                    }),
                     busy: _busy,
                     onClear: _clearTrash,
                   ),
@@ -161,20 +197,17 @@ class _TrashPageState extends State<TrashPage> {
                   sliver: SliverList(
                     key: const ValueKey<String>('trash-list-builder'),
                     delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = items[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: AppMetrics.unit * 2,
-                        ),
-                        child: _TrashCard(
-                          key: ValueKey<String>('trash-item-${item.id}'),
-                          record: _TrashRecord.from(item, controller),
-                          colors: colors,
-                          enabled: !_busy,
-                          onRestore: () => _restore(item),
-                        ),
+                      final entry = visibleEntries[index];
+                      return _TrashCard(
+                        key: ValueKey<String>('trash-item-${entry.item.id}'),
+                        record: entry.record,
+                        colors: colors,
+                        enabled: !_busy,
+                        first: index == 0,
+                        last: index == visibleEntries.length - 1,
+                        onRestore: () => _restore(entry.item),
                       );
-                    }, childCount: items.length),
+                    }, childCount: visibleEntries.length),
                   ),
                 ),
               ],
@@ -186,7 +219,7 @@ class _TrashPageState extends State<TrashPage> {
   }
 
   Future<bool?> _confirmClear(BuildContext context) {
-    return showAppDialog<bool>(
+    return showShadDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ShadDialog.alert(
@@ -224,11 +257,29 @@ class _TrashPageState extends State<TrashPage> {
   }
 }
 
+_TrashFilter _availableFilter(
+  _TrashFilter preferred, {
+  required int allCount,
+  required int taskCount,
+  required int projectCount,
+}) {
+  final count = switch (preferred) {
+    _TrashFilter.all => allCount,
+    _TrashFilter.todo => taskCount,
+    _TrashFilter.project => projectCount,
+  };
+  return count == 0 ? _TrashFilter.all : preferred;
+}
+
 class _TrashHeader extends StatelessWidget {
   const _TrashHeader({
     required this.colors,
     required this.narrow,
     required this.itemCount,
+    required this.taskCount,
+    required this.projectCount,
+    required this.selectedFilter,
+    required this.onFilterChanged,
     required this.busy,
     required this.onClear,
   });
@@ -236,25 +287,30 @@ class _TrashHeader extends StatelessWidget {
   final AppColorScheme colors;
   final bool narrow;
   final int itemCount;
+  final int taskCount;
+  final int projectCount;
+  final _TrashFilter selectedFilter;
+  final ValueChanged<_TrashFilter> onFilterChanged;
   final bool busy;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
+    final destructive = ProjectPalette.resolve('red');
     final heading = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.focusSoft,
-            borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+            shape: BoxShape.circle,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(AppMetrics.unit * 3),
-            child: Icon(AppIcons.trash, color: colors.focus, size: 22),
+            padding: const EdgeInsets.all(AppMetrics.unit * 2.75),
+            child: Icon(AppIcons.trash, color: colors.focus, size: 18),
           ),
         ),
-        const SizedBox(width: AppMetrics.unit * 4),
+        const SizedBox(width: AppMetrics.unit * 3),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,12 +319,11 @@ class _TrashHeader extends StatelessWidget {
                 '回收站',
                 style: TextStyle(
                   color: colors.text,
-                  fontSize: 24,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: -.3,
                 ),
               ),
-              const SizedBox(height: AppMetrics.unit),
+              const SizedBox(height: AppMetrics.unit * .75),
               Text(
                 itemCount == 0
                     ? '已删除的 Todo 和项目会暂时保留在这里。'
@@ -280,11 +335,13 @@ class _TrashHeader extends StatelessWidget {
         ),
       ],
     );
-    final clear = ShadButton.destructive(
+    final clear = ShadButton.ghost(
       key: const ValueKey<String>('trash-clear-button'),
       onPressed: busy || itemCount == 0 ? null : onClear,
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 3),
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
+      foregroundColor: destructive.foreground,
+      hoverBackgroundColor: destructive.softBackground,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -294,23 +351,155 @@ class _TrashHeader extends StatelessWidget {
         ],
       ),
     );
+    final filters = _TrashFilterBar(
+      colors: colors,
+      selected: selectedFilter,
+      allCount: itemCount,
+      taskCount: taskCount,
+      projectCount: projectCount,
+      onChanged: onFilterChanged,
+    );
     if (narrow) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           heading,
-          const SizedBox(height: AppMetrics.unit * 3),
-          clear,
+          const SizedBox(height: AppMetrics.unit * 3.5),
+          Align(alignment: Alignment.centerLeft, child: filters),
+          const SizedBox(height: AppMetrics.unit * 2.5),
+          Align(alignment: Alignment.centerLeft, child: clear),
         ],
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: heading),
-        const SizedBox(width: AppMetrics.unit * 3),
-        clear,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: heading),
+            const SizedBox(width: AppMetrics.unit * 3),
+            clear,
+          ],
+        ),
+        const SizedBox(height: AppMetrics.unit * 4),
+        Align(alignment: Alignment.centerLeft, child: filters),
       ],
+    );
+  }
+}
+
+class _TrashFilterBar extends StatelessWidget {
+  const _TrashFilterBar({
+    required this.colors,
+    required this.selected,
+    required this.allCount,
+    required this.taskCount,
+    required this.projectCount,
+    required this.onChanged,
+  });
+
+  final AppColorScheme colors;
+  final _TrashFilter selected;
+  final int allCount;
+  final int taskCount;
+  final int projectCount;
+  final ValueChanged<_TrashFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+        border: Border.all(color: colors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppMetrics.unit),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _TrashFilterChip(
+              label: '\u5168\u90e8',
+              count: allCount,
+              selected: selected == _TrashFilter.all,
+              colors: colors,
+              onPressed: () => onChanged(_TrashFilter.all),
+            ),
+            _TrashFilterChip(
+              label: '\u4efb\u52a1',
+              count: taskCount,
+              selected: selected == _TrashFilter.todo,
+              colors: colors,
+              onPressed: taskCount == 0
+                  ? null
+                  : () => onChanged(_TrashFilter.todo),
+            ),
+            _TrashFilterChip(
+              label: '\u9879\u76ee',
+              count: projectCount,
+              selected: selected == _TrashFilter.project,
+              colors: colors,
+              onPressed: projectCount == 0
+                  ? null
+                  : () => onChanged(_TrashFilter.project),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrashFilterChip extends StatelessWidget {
+  const _TrashFilterChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.colors,
+    required this.onPressed,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final AppColorScheme colors;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final textColor = !enabled
+        ? colors.textFaint
+        : selected
+        ? colors.focus
+        : colors.textMuted;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected ? colors.focusSoft : colors.transparent,
+          borderRadius: BorderRadius.circular(AppMetrics.buttonRadius),
+          border: selected
+              ? Border.all(color: colors.focus.withValues(alpha: .22))
+              : null,
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: selected ? AppMetrics.unit * 4 : AppMetrics.unit * 3.5,
+            vertical: selected ? AppMetrics.unit * 1.5 : AppMetrics.unit * 1.25,
+          ),
+          child: Text(
+            '$label  $count',
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -321,12 +510,16 @@ class _TrashCard extends StatelessWidget {
     required this.record,
     required this.colors,
     required this.enabled,
+    required this.first,
+    required this.last,
     required this.onRestore,
   });
 
   final _TrashRecord record;
   final AppColorScheme colors;
   final bool enabled;
+  final bool first;
+  final bool last;
   final VoidCallback onRestore;
 
   @override
@@ -365,83 +558,103 @@ class _TrashCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(AppMetrics.cardRadius),
-        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(first ? AppMetrics.cardRadius : 0),
+          bottom: Radius.circular(last ? AppMetrics.cardRadius : 0),
+        ),
+        border: Border(
+          top: first ? BorderSide(color: colors.border) : BorderSide.none,
+          left: BorderSide(color: colors.border),
+          right: BorderSide(color: colors.border),
+          bottom: BorderSide(color: colors.border),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppMetrics.unit * 4),
+        padding: const EdgeInsets.fromLTRB(
+          AppMetrics.unit * 3,
+          AppMetrics.unit * 2.5,
+          AppMetrics.unit * 3,
+          AppMetrics.unit * 2.5,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 520;
-            final content = Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: palette.softBackground,
-                    borderRadius: BorderRadius.circular(
-                      AppMetrics.normalRadius,
+            final compact = constraints.maxWidth < 560;
+            final icon = DecoratedBox(
+              decoration: BoxDecoration(
+                color: palette.softBackground,
+                borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+              ),
+              child: SizedBox(
+                width: AppMetrics.unit * 9,
+                height: AppMetrics.unit * 9,
+                child: Center(
+                  child: record.isProject
+                      ? ProjectIcon(
+                          iconKey: record.iconKey,
+                          color: palette.accent,
+                          size: 18,
+                        )
+                      : Icon(
+                          AppIcons.completed,
+                          color: palette.accent,
+                          size: 18,
+                        ),
+                ),
+              ),
+            );
+            final details = Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    record.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppMetrics.unit * 2.5),
-                    child: record.isProject
-                        ? ProjectIcon(
-                            iconKey: record.iconKey,
-                            color: palette.accent,
-                            size: 20,
-                          )
-                        : Icon(
-                            AppIcons.completed,
-                            color: palette.accent,
-                            size: 20,
-                          ),
-                  ),
-                ),
+                  const SizedBox(height: AppMetrics.unit * 1.25),
+                  metadata,
+                ],
+              ),
+            );
+            final content = Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                icon,
                 const SizedBox(width: AppMetrics.unit * 3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              record.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.text,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppMetrics.unit * 2),
-                          _KindBadge(record: record, colors: colors),
-                        ],
-                      ),
-                      const SizedBox(height: AppMetrics.unit * 1.5),
-                      metadata,
-                    ],
-                  ),
-                ),
+                details,
                 if (!compact) ...[
                   const SizedBox(width: AppMetrics.unit * 3),
+                  _KindBadge(record: record, colors: colors),
+                  const SizedBox(width: AppMetrics.unit * 8),
                   action,
                 ],
               ],
             );
-            return compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      content,
-                      const SizedBox(height: AppMetrics.unit * 2),
-                      action,
-                    ],
-                  )
-                : content;
+            return ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
+              child: compact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        content,
+                        const SizedBox(height: AppMetrics.unit * 2),
+                        Row(
+                          children: [
+                            _KindBadge(record: record, colors: colors),
+                            const Spacer(),
+                            action,
+                          ],
+                        ),
+                      ],
+                    )
+                  : content,
+            );
           },
         ),
       ),
@@ -460,18 +673,21 @@ class _KindBadge extends StatelessWidget {
     final label = record.isProject ? '项目' : 'Todo 子树';
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceSubtle,
+        color: record.isProject ? colors.focusSoft : colors.surfaceSubtle,
         borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-        border: Border.all(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppMetrics.unit * 1.5,
-          vertical: AppMetrics.unit,
+          horizontal: AppMetrics.unit * 2,
+          vertical: AppMetrics.unit * 1.25,
         ),
         child: Text(
           label,
-          style: TextStyle(color: colors.textMuted, fontSize: 10),
+          style: TextStyle(
+            color: record.isProject ? colors.focus : colors.textMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -490,9 +706,9 @@ class _Meta extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: colors.textFaint),
+        Icon(icon, size: 12, color: colors.textFaint),
         const SizedBox(width: AppMetrics.unit),
-        Text(text, style: TextStyle(color: colors.textMuted, fontSize: 11)),
+        Text(text, style: TextStyle(color: colors.textMuted, fontSize: 10.5)),
       ],
     );
   }
@@ -593,6 +809,13 @@ class _StatusBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TrashEntry {
+  const _TrashEntry({required this.item, required this.record});
+
+  final TrashItem item;
+  final _TrashRecord record;
 }
 
 class _TrashRecord {
