@@ -94,8 +94,8 @@ class TodoMoveService {
     if (destinationGroupId != null && target.groupId != destinationGroupId) {
       throw StateError('Destination group must match the drop target');
     }
-    final projectChanged = targetProject != moving.projectId ||
-        targetGroup != moving.groupId;
+    final projectChanged =
+        targetProject != moving.projectId || targetGroup != moving.groupId;
     if (projectChanged &&
         !allowCrossProject &&
         destinationProjectId == null &&
@@ -244,8 +244,8 @@ List<TodoItem> moveTodos({
   movingId: movingId,
   targetId: targetId,
   position: position,
-    destinationProjectId: destinationProjectId,
-    destinationGroupId: destinationGroupId,
+  destinationProjectId: destinationProjectId,
+  destinationGroupId: destinationGroupId,
   allowCrossProject: allowCrossProject,
   now: now,
 );

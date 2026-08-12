@@ -33,7 +33,11 @@ class WindowsStickyNotesWindowService implements StickyNotesWindowService {
   final MethodChannel _channel;
 
   @override
-  Future<void> open({required String key, String? projectId, String? groupId}) async {
+  Future<void> open({
+    required String key,
+    String? projectId,
+    String? groupId,
+  }) async {
     await _channel.invokeMethod<void>('open', <String, Object?>{
       'key': key,
       'projectId': projectId,
@@ -86,11 +90,17 @@ class FakeStickyNotesWindowService implements StickyNotesWindowService {
   final Set<String> alwaysOnTopKeys = <String>{};
 
   @override
-  Future<void> open({required String key, String? projectId, String? groupId}) async {
+  Future<void> open({
+    required String key,
+    String? projectId,
+    String? groupId,
+  }) async {
     openKeys.add(key);
-    calls.add(groupId == null
-        ? 'open:$key:${projectId ?? ''}'
-        : 'open:$key::group:$groupId');
+    calls.add(
+      groupId == null
+          ? 'open:$key:${projectId ?? ''}'
+          : 'open:$key::group:$groupId',
+    );
   }
 
   @override
@@ -137,12 +147,13 @@ class SafeStickyNotesWindowService implements StickyNotesWindowService {
   final StickyNotesWindowService _delegate;
 
   @override
-  Future<void> open({required String key, String? projectId, String? groupId}) =>
-      _guard(() => _delegate.open(
-            key: key,
-            projectId: projectId,
-            groupId: groupId,
-          ));
+  Future<void> open({
+    required String key,
+    String? projectId,
+    String? groupId,
+  }) => _guard(
+    () => _delegate.open(key: key, projectId: projectId, groupId: groupId),
+  );
 
   @override
   Future<void> close(String key) => _guard(() => _delegate.close(key));

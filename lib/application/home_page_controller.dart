@@ -9,11 +9,7 @@ import 'package:flutter/foundation.dart';
 class HomePageController extends ChangeNotifier {
   HomePageComposerRequest? _pendingComposerRequest;
 
-  void requestComposer({
-    String? parentId,
-    String? projectId,
-    String? groupId,
-  }) {
+  void requestComposer({String? parentId, String? projectId, String? groupId}) {
     _pendingComposerRequest = HomePageComposerRequest(
       parentId: parentId,
       projectId: projectId,
@@ -24,11 +20,7 @@ class HomePageController extends ChangeNotifier {
 
   /// Alias used by shell actions that read as an imperative open command.
   void openComposer({String? parentId, String? projectId, String? groupId}) {
-    requestComposer(
-      parentId: parentId,
-      projectId: projectId,
-      groupId: groupId,
-    );
+    requestComposer(parentId: parentId, projectId: projectId, groupId: groupId);
   }
 
   HomePageComposerRequest? takeComposerRequest() {

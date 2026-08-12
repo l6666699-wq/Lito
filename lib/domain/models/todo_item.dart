@@ -47,6 +47,7 @@ class TodoItem {
 
   final String id;
   final String? projectId;
+
   /// A root Todo may belong directly to a project group. Project-owned Todos
   /// keep this null; child Todos inherit the same container as their parent.
   final String? groupId;
