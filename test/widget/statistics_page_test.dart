@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import 'package:litetodo/app/theme/app_colors.dart';
+import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/app/theme/app_theme.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/presentation/statistics/statistics_page.dart';
@@ -102,6 +103,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'statistics does not draw completion charts for open-only todos',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      controller.createRootTodo('只有未完成任务');
+      await tester.pumpWidget(_host(controller));
+
+      expect(_totalValue('1'), findsOneWidget);
+      expect(find.text('暂无可展示的趋势数据'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('statistics-trend-chart')),
+        findsNothing,
+      );
+      expect(find.text('暂无完成记录'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('statistics ranges use the injected local now for old data', (
     tester,
   ) async {
@@ -135,9 +155,17 @@ void main() {
       final header = tester.getRect(
         find.byKey(const ValueKey<String>('statistics-header')),
       );
+      final page = tester.getRect(
+        find.byKey(const ValueKey<String>('statistics-page')),
+      );
+      final surface = tester.getRect(
+        find.byKey(const ValueKey<String>('statistics-surface')),
+      );
       final kpi = tester.getRect(
         find.byKey(const ValueKey<String>('statistics-kpi-total')),
       );
+      expect(surface.left - page.left, closeTo(AppMetrics.unit * 3, 1));
+      expect(surface.top - page.top, closeTo(AppMetrics.unit * 3, 1));
       expect(header.height, closeTo(71, 1));
       expect(kpi.top - header.bottom, closeTo(14, 1));
       expect(kpi.top - header.top, closeTo(85, 1));

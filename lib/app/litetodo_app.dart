@@ -12,13 +12,13 @@ import '../application/sticky_notes_controller.dart';
 import '../application/window_controller.dart';
 import '../application/workspace_controller.dart';
 import '../domain/models/app_settings.dart';
-import '../domain/models/project_group.dart';
 import '../infrastructure/platform/data_directory_service.dart';
 import '../infrastructure/platform/sticky_notes_window_service.dart';
 import '../infrastructure/persistence/backup_service.dart';
 import '../presentation/shell/app_shell.dart';
 import '../presentation/settings/settings_scope.dart';
 import 'app_constants.dart';
+import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
 
 class LiteTodoApp extends StatefulWidget {
@@ -82,8 +82,13 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
         workspace: _controller,
         windowService:
             widget.stickyNotesWindowService ?? FakeStickyNotesWindowService(),
+        settingsProvider: () => _settingsController.settings,
       );
   QuickAddControllerBinding? _quickAddBinding;
+  AppThemeMode? _lastStickyThemeMode;
+  String? _lastStickyAccentColorKey;
+  String? _lastStickyFontFamilyKey;
+  double? _lastStickyFontScale;
 
   @override
   void initState() {
@@ -126,18 +131,25 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
 
   void _syncQuickAddSettings() {
     _quickAddController.setLastProjectId(_settingsController.lastProjectId);
+    final settings = _settingsController.settings;
+    if (_lastStickyThemeMode == settings.themeMode &&
+        _lastStickyAccentColorKey == settings.accentColorKey &&
+        _lastStickyFontFamilyKey == settings.fontFamilyKey &&
+        _lastStickyFontScale == settings.fontScale) {
+      return;
+    }
+    _lastStickyThemeMode = settings.themeMode;
+    _lastStickyAccentColorKey = settings.accentColorKey;
+    _lastStickyFontFamilyKey = settings.fontFamilyKey;
+    _lastStickyFontScale = settings.fontScale;
+    unawaited(_stickyNotesController.syncOpenWindows());
   }
 
   void _syncQuickAddTargets() {
-    final groups = <String, ProjectGroup>{
-      for (final group in _controller.groups) group.id: group,
-    };
     final projects =
         _controller.projects
             .where((project) {
-              if (project.archived) return false;
-              final group = groups[project.groupId];
-              return group == null || group.archived != true;
+              return !project.archived;
             })
             .toList(growable: false)
           ..sort((left, right) {
@@ -156,8 +168,6 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
           name: project.name,
           iconKey: project.iconKey,
           colorKey: project.colorKey,
-          groupId: project.groupId,
-          groupName: groups[project.groupId]?.name,
         ),
     ]);
     _quickAddController.setWorkspaceProjectId(
@@ -196,9 +206,7 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
             fontFamilyKey: settings.fontFamilyKey,
           ),
           themeMode: themeMode,
-          // Keep ShadApp's built-in 200ms theme controller, but evaluate the
-          // end state from its first frame so a user toggle is immediate.
-          themeCurve: const Threshold(0.0),
+          themeCurve: AppMotion.standardCurve,
           // WidgetsApp keeps the initial home route alive while its inherited
           // theme changes.  Apply the current snapshot at the app builder
           // boundary so the mounted shell sees the new palette immediately,
@@ -219,8 +227,10 @@ class _LiteTodoAppState extends State<LiteTodoApp> {
                     accentColorKey: settings.accentColorKey,
                     fontFamilyKey: settings.fontFamilyKey,
                   );
-            return ShadTheme(
+            return ShadAnimatedTheme(
               data: liveTheme,
+              duration: AppMotion.theme,
+              curve: AppMotion.standardCurve,
               child: child ?? const SizedBox.shrink(),
             );
           },

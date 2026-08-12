@@ -9,14 +9,26 @@ import 'package:flutter/foundation.dart';
 class HomePageController extends ChangeNotifier {
   HomePageComposerRequest? _pendingComposerRequest;
 
-  void requestComposer({String? parentId}) {
-    _pendingComposerRequest = HomePageComposerRequest(parentId: parentId);
+  void requestComposer({
+    String? parentId,
+    String? projectId,
+    String? groupId,
+  }) {
+    _pendingComposerRequest = HomePageComposerRequest(
+      parentId: parentId,
+      projectId: projectId,
+      groupId: groupId,
+    );
     notifyListeners();
   }
 
   /// Alias used by shell actions that read as an imperative open command.
-  void openComposer({String? parentId}) {
-    requestComposer(parentId: parentId);
+  void openComposer({String? parentId, String? projectId, String? groupId}) {
+    requestComposer(
+      parentId: parentId,
+      projectId: projectId,
+      groupId: groupId,
+    );
   }
 
   HomePageComposerRequest? takeComposerRequest() {
@@ -27,7 +39,9 @@ class HomePageController extends ChangeNotifier {
 }
 
 class HomePageComposerRequest {
-  const HomePageComposerRequest({this.parentId});
+  const HomePageComposerRequest({this.parentId, this.projectId, this.groupId});
 
   final String? parentId;
+  final String? projectId;
+  final String? groupId;
 }

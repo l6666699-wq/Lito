@@ -8,6 +8,7 @@ import '../../app/app_constants.dart';
 import '../../app/app_text.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../app/theme/app_motion.dart';
 import '../../app/theme/project_palette.dart';
 import '../../application/app_navigation_controller.dart';
 import '../../application/home_page_controller.dart';
@@ -17,7 +18,6 @@ import '../../application/workspace_controller.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
 import '../../domain/models/project.dart';
-import '../../domain/models/project_group.dart';
 import '../home/home_page.dart';
 import '../projects/project_management.dart';
 import '../settings/settings_page.dart';
@@ -99,7 +99,14 @@ class _FullAppShellState extends State<FullAppShell> {
 
   void _openHomeComposer() {
     widget.navigationController.goHome();
-    _homePageController.openComposer();
+    _homePageController.openComposer(
+      projectId: widget.controller.scope == WorkspaceScope.project
+          ? widget.controller.projectScopeId
+          : null,
+      groupId: widget.controller.scope == WorkspaceScope.group
+          ? widget.controller.groupScopeId
+          : null,
+    );
   }
 
   void _onFocusChanged() {
@@ -256,19 +263,41 @@ class _RouteContent extends StatelessWidget {
     return ListenableBuilder(
       listenable: navigationController,
       builder: (context, child) {
-        switch (navigationController.page) {
-          case AppPage.home:
-            return HomePage(
-              controller: controller,
-              composerController: homePageController,
+        final page = switch (navigationController.page) {
+          AppPage.home => HomePage(
+            key: const ValueKey<AppPage>(AppPage.home),
+            controller: controller,
+            composerController: homePageController,
+          ),
+          AppPage.statistics => StatisticsPage(
+            key: const ValueKey<AppPage>(AppPage.statistics),
+            controller: controller,
+          ),
+          AppPage.trash => TrashPage(
+            key: const ValueKey<AppPage>(AppPage.trash),
+            controller: controller,
+          ),
+          AppPage.settings => const SettingsPage(
+            key: ValueKey<AppPage>(AppPage.settings),
+          ),
+        };
+        return AnimatedSwitcher(
+          duration: AppMotion.page,
+          reverseDuration: AppMotion.fast,
+          switchInCurve: AppMotion.enterCurve,
+          switchOutCurve: AppMotion.exitCurve,
+          transitionBuilder: (child, animation) {
+            final offset = Tween<Offset>(
+              begin: const Offset(0, .01),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: offset, child: child),
             );
-          case AppPage.statistics:
-            return StatisticsPage(controller: controller);
-          case AppPage.trash:
-            return TrashPage(controller: controller);
-          case AppPage.settings:
-            return const SettingsPage();
-        }
+          },
+          child: page,
+        );
       },
     );
   }
@@ -526,6 +555,11 @@ class _TopbarTitle extends StatelessWidget {
     if (workspace.scope == WorkspaceScope.project) {
       for (final project in workspace.projects) {
         if (project.id == workspace.projectScopeId) return project.name;
+      }
+    }
+    if (workspace.scope == WorkspaceScope.group) {
+      for (final group in workspace.groups) {
+        if (group.id == workspace.groupScopeId) return group.name;
       }
     }
     return switch (workspace.scope) {
@@ -871,7 +905,6 @@ class _Sidebar extends StatefulWidget {
 }
 
 class _SidebarState extends State<_Sidebar> {
-  final Set<String> _collapsedGroups = <String>{};
   bool _archivedProjectsExpanded = false;
 
   WorkspaceController get controller => widget.controller;
@@ -920,28 +953,6 @@ class _SidebarState extends State<_Sidebar> {
                     onPressed: () => _selectHome(controller.selectInbox),
                   ),
                   _ScopeItem(
-                    label: '今天',
-                    icon: AppIcons.today,
-                    count: controller.countForScope(WorkspaceScope.today),
-                    active:
-                        navigation.page == AppPage.home &&
-                        controller.scope == WorkspaceScope.today,
-                    accent: colors.focus,
-                    activeBackground: colors.focusSoft,
-                    onPressed: () => _selectHome(controller.selectToday),
-                  ),
-                  _ScopeItem(
-                    label: '近期',
-                    icon: AppIcons.recent,
-                    count: controller.countForScope(WorkspaceScope.recent),
-                    active:
-                        navigation.page == AppPage.home &&
-                        controller.scope == WorkspaceScope.recent,
-                    accent: colors.focus,
-                    activeBackground: colors.focusSoft,
-                    onPressed: () => _selectHome(controller.selectRecent),
-                  ),
-                  _ScopeItem(
                     label: '已完成',
                     icon: AppIcons.completed,
                     count: controller.countForScope(WorkspaceScope.completed),
@@ -982,7 +993,7 @@ class _SidebarState extends State<_Sidebar> {
                     visible: false,
                     child: _SidebarSectionLabel(label: '项目'),
                   ),
-                  const _SidebarSectionLabel(label: '项目组'),
+                  const _SidebarSectionLabel(label: '项目'),
                   const SizedBox(height: AppMetrics.unit),
                   _ScopeItem(
                     label: AppText.allTodos,
@@ -997,37 +1008,8 @@ class _SidebarState extends State<_Sidebar> {
                     onPressed: () => _selectHome(controller.selectAll),
                   ),
                   const SizedBox(height: AppMetrics.unit),
-                  for (final group in controller.groups.where(
-                    (group) => !group.archived,
-                  ))
-                    _GroupProjects(
-                      group: group,
-                      projects: controller.projects
-                          .where(
-                            (project) =>
-                                project.groupId == group.id &&
-                                !project.archived,
-                          )
-                          .toList(growable: false),
-                      controller: controller,
-                      navigationController: navigation,
-                      stickyNotesController: widget.stickyNotesController,
-                      expanded: !_collapsedGroups.contains(group.id),
-                      onToggle: () {
-                        setState(() {
-                          if (!_collapsedGroups.add(group.id)) {
-                            _collapsedGroups.remove(group.id);
-                          }
-                        });
-                      },
-                      onMore: () => ProjectManagement.showGroupActions(
-                        context,
-                        controller,
-                        group,
-                      ),
-                    ),
                   for (final project in controller.projects.where(
-                    (project) => project.groupId == null && !project.archived,
+                    (project) => !project.archived,
                   ))
                     _ProjectItem(
                       project: project,
@@ -1209,6 +1191,8 @@ class _ScopeItem extends StatelessWidget {
   }
 }
 
+/* legacy grouped-project renderer removed: projects are now flat */
+/*
 class _GroupProjects extends StatelessWidget {
   const _GroupProjects({
     required this.group,
@@ -1216,9 +1200,12 @@ class _GroupProjects extends StatelessWidget {
     required this.controller,
     required this.navigationController,
     this.stickyNotesController,
+    required this.active,
     required this.expanded,
     required this.onToggle,
     required this.onMore,
+    required this.onSelect,
+    this.onSticky,
   });
 
   final ProjectGroup group;
@@ -1226,9 +1213,12 @@ class _GroupProjects extends StatelessWidget {
   final WorkspaceController controller;
   final AppNavigationController navigationController;
   final StickyNotesController? stickyNotesController;
+  final bool active;
   final bool expanded;
   final VoidCallback onToggle;
   final VoidCallback onMore;
+  final VoidCallback onSelect;
+  final VoidCallback? onSticky;
 
   @override
   Widget build(BuildContext context) {
@@ -1239,16 +1229,23 @@ class _GroupProjects extends StatelessWidget {
       children: [
         _FocusableTap(
           key: ValueKey<String>('project-group-${group.id}'),
-          onTap: onToggle,
+          onTap: () {
+            onSelect();
+            onToggle();
+          },
           child: Semantics(
             button: true,
             label: '${group.name} 项目组',
-            child: Padding(
+            child: Container(
               padding: const EdgeInsets.fromLTRB(
                 AppMetrics.unit * 2,
                 AppMetrics.unit,
                 AppMetrics.unit * 3,
                 AppMetrics.unit,
+              ),
+              decoration: BoxDecoration(
+                color: active ? palette.softBackground : null,
+                borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
               ),
               child: Row(
                 children: [
@@ -1274,7 +1271,7 @@ class _GroupProjects extends StatelessWidget {
                       group.name,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: colors.textMuted,
+                        color: active ? palette.accent : colors.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1285,6 +1282,15 @@ class _GroupProjects extends StatelessWidget {
                     style: TextStyle(color: colors.textFaint, fontSize: 10),
                   ),
                   const SizedBox(width: AppMetrics.unit * 2),
+                  if (onSticky != null)
+                    _MoreButton(
+                      key: ValueKey<String>('project-group-sticky-${group.id}'),
+                      tooltip: '创建项目组便签',
+                      icon: AppIcons.stickyNotes,
+                      onPressed: onSticky!,
+                    ),
+                  if (onSticky != null)
+                    const SizedBox(width: AppMetrics.unit * 2),
                   _MoreButton(
                     key: ValueKey<String>('project-group-more-${group.id}'),
                     tooltip: '项目组操作',
@@ -1324,6 +1330,7 @@ class _GroupProjects extends StatelessWidget {
     );
   }
 }
+*/
 
 class _ProjectItem extends StatelessWidget {
   const _ProjectItem({
@@ -1361,7 +1368,7 @@ class _ProjectItem extends StatelessWidget {
           children: [
             ProjectIcon(
               iconKey: project.iconKey,
-              color: active ? palette.accent : colors.textMuted,
+              color: palette.accent,
               size: AppMetrics.iconSize,
             ),
             const SizedBox(width: AppMetrics.unit * 2),
@@ -1422,13 +1429,7 @@ class _ArchivedProjectsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final projects = controller.projects
-        .where((project) {
-          if (project.archived) return true;
-          for (final group in controller.groups) {
-            if (group.id == project.groupId && group.archived) return true;
-          }
-          return false;
-        })
+        .where((project) => project.archived)
         .toList(growable: false);
     if (projects.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -1495,19 +1496,11 @@ class _ArchivedProjectsSection extends StatelessWidget {
                   context,
                   controller,
                   project,
-                  archivedGroup: _archivedGroupFor(project),
                 ),
               ),
             ),
       ],
     );
-  }
-
-  ProjectGroup? _archivedGroupFor(Project project) {
-    for (final group in controller.groups) {
-      if (group.id == project.groupId && group.archived) return group;
-    }
-    return null;
   }
 }
 
@@ -1519,9 +1512,6 @@ class _SidebarFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final projectGroupCount = controller.groups
-        .where((group) => !group.archived)
-        .length;
     final projectCount = controller.projects
         .where((project) => !project.archived)
         .length;
@@ -1536,7 +1526,7 @@ class _SidebarFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            '共 $projectGroupCount 个项目组 · $projectCount 个项目',
+            '共 $projectCount 个项目',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: colors.textFaint, fontSize: 10),
@@ -1546,9 +1536,9 @@ class _SidebarFooter extends StatelessWidget {
             children: [
               Expanded(
                 child: ShadTooltip(
-                  builder: (context) => const Text('新建项目组'),
+                  builder: (context) => const Text('新建项目'),
                   child: ShadButton.outline(
-                    key: const ValueKey<String>('new-project-group-button'),
+                    key: const ValueKey<String>('new-project-button'),
                     onPressed: () =>
                         ProjectManagement.showCreateGroup(context, controller),
                     height: 34,
@@ -1563,7 +1553,7 @@ class _SidebarFooter extends StatelessWidget {
                       children: [
                         const Icon(AppIcons.add, size: 15),
                         const SizedBox(width: AppMetrics.unit),
-                        const Text('新建项目组', style: TextStyle(fontSize: 12)),
+                        const Text('新建项目', style: TextStyle(fontSize: 12)),
                       ],
                     ),
                   ),

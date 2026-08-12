@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 /// other platforms can use [FakeStickyNotesWindowService] until a native
 /// implementation is available.
 abstract interface class StickyNotesWindowService {
-  Future<void> open({required String key, String? projectId});
+  Future<void> open({required String key, String? projectId, String? groupId});
 
   Future<void> close(String key);
 
@@ -33,10 +33,11 @@ class WindowsStickyNotesWindowService implements StickyNotesWindowService {
   final MethodChannel _channel;
 
   @override
-  Future<void> open({required String key, String? projectId}) async {
+  Future<void> open({required String key, String? projectId, String? groupId}) async {
     await _channel.invokeMethod<void>('open', <String, Object?>{
       'key': key,
       'projectId': projectId,
+      'groupId': groupId,
     });
   }
 
@@ -85,9 +86,11 @@ class FakeStickyNotesWindowService implements StickyNotesWindowService {
   final Set<String> alwaysOnTopKeys = <String>{};
 
   @override
-  Future<void> open({required String key, String? projectId}) async {
+  Future<void> open({required String key, String? projectId, String? groupId}) async {
     openKeys.add(key);
-    calls.add('open:$key:${projectId ?? ''}');
+    calls.add(groupId == null
+        ? 'open:$key:${projectId ?? ''}'
+        : 'open:$key::group:$groupId');
   }
 
   @override
@@ -134,8 +137,12 @@ class SafeStickyNotesWindowService implements StickyNotesWindowService {
   final StickyNotesWindowService _delegate;
 
   @override
-  Future<void> open({required String key, String? projectId}) =>
-      _guard(() => _delegate.open(key: key, projectId: projectId));
+  Future<void> open({required String key, String? projectId, String? groupId}) =>
+      _guard(() => _delegate.open(
+            key: key,
+            projectId: projectId,
+            groupId: groupId,
+          ));
 
   @override
   Future<void> close(String key) => _guard(() => _delegate.close(key));
@@ -182,25 +189,35 @@ class StickyWindowLaunchArguments {
   const StickyWindowLaunchArguments({
     required this.key,
     required this.projectId,
+    this.groupId,
   });
 
   final String key;
   final String? projectId;
+  final String? groupId;
 
   static StickyWindowLaunchArguments? parse(List<String> arguments) {
     if (!arguments.contains('--sticky-window')) return null;
     String? key;
     String? projectId;
+    String? groupId;
     for (final argument in arguments) {
       if (argument.startsWith('--sticky-key=')) {
         key = argument.substring('--sticky-key='.length);
       } else if (argument.startsWith('--sticky-project-id=')) {
         final value = argument.substring('--sticky-project-id='.length);
         projectId = value.isEmpty ? null : value;
+      } else if (argument.startsWith('--sticky-group-id=')) {
+        final value = argument.substring('--sticky-group-id='.length);
+        groupId = value.isEmpty ? null : value;
       }
     }
     if (key == null || key.isEmpty) return null;
-    return StickyWindowLaunchArguments(key: key, projectId: projectId);
+    return StickyWindowLaunchArguments(
+      key: key,
+      projectId: projectId,
+      groupId: groupId,
+    );
   }
 }
 
@@ -251,6 +268,7 @@ class StickyNotesSecondaryChannel {
     String? todoId,
     String? title,
     String? projectId,
+    String? groupId,
     String? targetId,
     String? position,
   }) async {
@@ -259,6 +277,7 @@ class StickyNotesSecondaryChannel {
       'todoId': todoId,
       'title': title,
       'projectId': projectId,
+      'groupId': groupId,
       'targetId': targetId,
       'position': position,
     });

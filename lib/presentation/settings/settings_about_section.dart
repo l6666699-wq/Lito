@@ -8,6 +8,7 @@ import '../../app/app_constants.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
 import '../../icons/app_icons.dart';
+import '../common/app_dialog.dart';
 import 'settings_shared_controls.dart';
 
 /// Supplies the registered package licenses when the license dialog opens.
@@ -29,7 +30,7 @@ class AboutSettingsSection extends StatelessWidget {
   Future<void> _showLicenses(BuildContext context) async {
     final streamFactory =
         licenseStreamFactory ?? (() => LicenseRegistry.licenses);
-    await showShadDialog<void>(
+    await showAppDialog<void>(
       context: context,
       barrierLabel: '关闭第三方许可证',
       builder: (context) => _LicenseDialog(streamFactory: streamFactory),

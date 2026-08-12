@@ -38,6 +38,7 @@ abstract final class AppIcons {
   static const IconData more = LucideIcons.ellipsis;
   static const IconData filter = LucideIcons.funnel;
   static const IconData sort = LucideIcons.arrowUpDown;
+  static const IconData flag = LucideIcons.flag;
   static const IconData shortcut = LucideIcons.keyboard;
   static const IconData font = LucideIcons.type;
   static const IconData folder = LucideIcons.folder;

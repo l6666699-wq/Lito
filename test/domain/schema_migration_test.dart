@@ -52,4 +52,68 @@ void main() {
     expect(migrated.todos.single.archivedAt, isNull);
     expect(migrated.trash.single.id, 'trash-1');
   });
+
+  test(
+    'legacy project groups become flat projects and own todos follow them',
+    () {
+      final legacy = <String, dynamic>{
+        'schemaVersion': 2,
+        'revision': 3,
+        'groups': <dynamic>[
+          <String, dynamic>{
+            'id': 'group-test',
+            'name': '测试',
+            'iconKey': 'folder',
+            'colorKey': 'blue',
+            'sortOrder': 1000,
+            'archived': false,
+            'createdAt': '2026-01-01T00:00:00.000Z',
+            'updatedAt': '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        'projects': <dynamic>[
+          <String, dynamic>{
+            'id': 'project-child',
+            'name': '子项目',
+            'iconKey': 'folder',
+            'colorKey': 'green',
+            'sortOrder': 2000,
+            'archived': false,
+            'groupId': 'group-test',
+            'createdAt': '2026-01-01T00:00:00.000Z',
+            'updatedAt': '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        'todos': <dynamic>[
+          <String, dynamic>{
+            'id': 'todo-group',
+            'projectId': null,
+            'groupId': 'group-test',
+            'parentId': null,
+            'title': '组内待办',
+            'completed': false,
+            'completedAt': null,
+            'sortOrder': 1000,
+            'collapsed': false,
+            'createdAt': '2026-01-01T00:00:00.000Z',
+            'updatedAt': '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        'trash': <dynamic>[],
+      };
+
+      final migrated = AppData.fromJson(legacy);
+      expect(migrated.groups, isEmpty);
+      expect(
+        migrated.projects.map((project) => project.id),
+        containsAll(['group-test', 'project-child']),
+      );
+      expect(
+        migrated.projects.every((project) => project.groupId == null),
+        isTrue,
+      );
+      expect(migrated.todos.single.projectId, 'group-test');
+      expect(migrated.todos.single.groupId, isNull);
+    },
+  );
 }

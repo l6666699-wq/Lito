@@ -71,21 +71,25 @@ void main() {
     expect(stats.daily, hasLength(7));
   });
 
-  test('completed and updated timestamps are real heatmap event sources', () {
+  test('completed timestamps are the only heatmap event source', () {
     final utcBoundary = DateTime.utc(2026, 8, 10, 16, 30);
     final completed = _todo('completed', completed: true).copyWith(
       createdAt: DateTime(2026, 8, 9, 10),
       updatedAt: DateTime(2026, 8, 9, 10),
       completedAt: utcBoundary,
     );
+    final openUpdated = _todo(
+      'open-updated',
+    ).copyWith(createdAt: DateTime(2026, 8, 9, 10), updatedAt: utcBoundary);
     final range = StatisticsRange.recent7(utcBoundary.toLocal());
     final stats = const StatisticsService().calculate([
       completed,
+      openUpdated,
     ], range: range);
     final local = utcBoundary.toLocal();
 
     expect(stats.completed, 1);
-    expect(stats.heatmapCount(local.weekday, local.hour), greaterThan(0));
+    expect(stats.heatmapCount(local.weekday, local.hour), 1);
     expect(stats.eventBasis, contains('completedAt'));
   });
 

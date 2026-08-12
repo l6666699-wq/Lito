@@ -26,6 +26,7 @@ void main() {
       collapsed: true,
       createdAt: now,
       updatedAt: now,
+      priority: TodoPriority.high,
     );
 
     expect(Project.fromJson(project.toJson()), project);

@@ -1,3 +1,31 @@
+enum TodoPriority { none, low, medium, high }
+
+TodoPriority todoPriorityFromJson(Object? value) {
+  switch (value) {
+    case 'high':
+      return TodoPriority.high;
+    case 'medium':
+      return TodoPriority.medium;
+    case 'low':
+      return TodoPriority.low;
+    default:
+      return TodoPriority.none;
+  }
+}
+
+String todoPriorityToJson(TodoPriority priority) {
+  switch (priority) {
+    case TodoPriority.high:
+      return 'high';
+    case TodoPriority.medium:
+      return 'medium';
+    case TodoPriority.low:
+      return 'low';
+    case TodoPriority.none:
+      return 'none';
+  }
+}
+
 /// The flat, persistent representation of one Todo.
 class TodoItem {
   const TodoItem({
@@ -13,10 +41,15 @@ class TodoItem {
     required this.updatedAt,
     this.dueAt,
     this.archivedAt,
+    this.priority = TodoPriority.none,
+    this.groupId,
   });
 
   final String id;
   final String? projectId;
+  /// A root Todo may belong directly to a project group. Project-owned Todos
+  /// keep this null; child Todos inherit the same container as their parent.
+  final String? groupId;
   final String? parentId;
   final String title;
   final bool completed;
@@ -29,6 +62,7 @@ class TodoItem {
   /// A non-null value archives the Todo without removing it from the flat
   /// list.  This keeps archive/unarchive reversible and migration friendly.
   final DateTime? archivedAt;
+  final TodoPriority priority;
   final int sortOrder;
   final bool collapsed;
   final DateTime createdAt;
@@ -40,12 +74,14 @@ class TodoItem {
   TodoItem copyWith({
     String? id,
     Object? projectId = _copyWithSentinel,
+    Object? groupId = _copyWithSentinel,
     Object? parentId = _copyWithSentinel,
     String? title,
     bool? completed,
     Object? completedAt = _copyWithSentinel,
     Object? dueAt = _copyWithSentinel,
     Object? archivedAt = _copyWithSentinel,
+    TodoPriority? priority,
     int? sortOrder,
     bool? collapsed,
     DateTime? createdAt,
@@ -56,6 +92,9 @@ class TodoItem {
       projectId: identical(projectId, _copyWithSentinel)
           ? this.projectId
           : projectId as String?,
+      groupId: identical(groupId, _copyWithSentinel)
+          ? this.groupId
+          : groupId as String?,
       parentId: identical(parentId, _copyWithSentinel)
           ? this.parentId
           : parentId as String?,
@@ -70,6 +109,7 @@ class TodoItem {
       archivedAt: identical(archivedAt, _copyWithSentinel)
           ? this.archivedAt
           : archivedAt as DateTime?,
+      priority: priority ?? this.priority,
       sortOrder: sortOrder ?? this.sortOrder,
       collapsed: collapsed ?? this.collapsed,
       createdAt: createdAt ?? this.createdAt,
@@ -81,12 +121,14 @@ class TodoItem {
     return TodoItem(
       id: json['id'] as String? ?? '',
       projectId: json['projectId'] as String?,
+      groupId: json['groupId'] as String?,
       parentId: json['parentId'] as String?,
       title: json['title'] as String? ?? '',
       completed: _readBool(json['completed']),
       completedAt: _readNullableDate(json['completedAt']),
       dueAt: _readNullableDate(json['dueAt']),
       archivedAt: _readNullableDate(json['archivedAt']),
+      priority: todoPriorityFromJson(json['priority']),
       sortOrder: _readInt(json['sortOrder']),
       collapsed: _readBool(json['collapsed']),
       createdAt: _readDate(json['createdAt']),
@@ -98,12 +140,14 @@ class TodoItem {
     return <String, dynamic>{
       'id': id,
       'projectId': projectId,
+      'groupId': groupId,
       'parentId': parentId,
       'title': title,
       'completed': completed,
       'completedAt': completedAt?.toUtc().toIso8601String(),
       'dueAt': dueAt?.toUtc().toIso8601String(),
       'archivedAt': archivedAt?.toUtc().toIso8601String(),
+      'priority': todoPriorityToJson(priority),
       'sortOrder': sortOrder,
       'collapsed': collapsed,
       'createdAt': createdAt.toUtc().toIso8601String(),
@@ -116,12 +160,14 @@ class TodoItem {
     return other is TodoItem &&
         other.id == id &&
         other.projectId == projectId &&
+        other.groupId == groupId &&
         other.parentId == parentId &&
         other.title == title &&
         other.completed == completed &&
         other.completedAt == completedAt &&
         other.dueAt == dueAt &&
         other.archivedAt == archivedAt &&
+        other.priority == priority &&
         other.sortOrder == sortOrder &&
         other.collapsed == collapsed &&
         other.createdAt == createdAt &&
@@ -132,12 +178,14 @@ class TodoItem {
   int get hashCode => Object.hash(
     id,
     projectId,
+    groupId,
     parentId,
     title,
     completed,
     completedAt,
     dueAt,
     archivedAt,
+    priority,
     sortOrder,
     collapsed,
     createdAt,

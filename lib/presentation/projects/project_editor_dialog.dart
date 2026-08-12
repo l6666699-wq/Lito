@@ -56,8 +56,6 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
   );
   late String _iconKey = widget.project?.iconKey ?? 'folder';
   late String _colorKey = widget.project?.colorKey ?? 'blue';
-  late String? _groupId = widget.project?.groupId ?? widget.initialGroupId;
-  bool _showGroups = false;
   String? _error;
 
   bool get _editing => widget.project != null;
@@ -79,7 +77,7 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
           key: const ValueKey<String>('project-editor-dialog'),
           title: _EditorDialogHeader(
             title: _editing ? '编辑项目' : '新建项目',
-            description: '名称、颜色、图标和所属分组可以随时调整。',
+            description: '名称、颜色和图标可以随时调整。',
             iconKey: _iconKey,
             colorKey: _colorKey,
           ),
@@ -146,19 +144,6 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
                 decoration: _projectEditorInputDecoration(colors),
               ),
               const SizedBox(height: AppMetrics.unit * 2.5),
-              const _FieldLabel(label: '所属分组'),
-              const SizedBox(height: AppMetrics.unit),
-              _GroupSelector(
-                controller: widget.controller,
-                value: _groupId,
-                expanded: _showGroups,
-                onToggle: () => setState(() => _showGroups = !_showGroups),
-                onChanged: (value) => setState(() {
-                  _groupId = value;
-                  _showGroups = false;
-                }),
-              ),
-              const SizedBox(height: AppMetrics.unit * 2.5),
               const _FieldLabel(label: '项目颜色'),
               const SizedBox(height: AppMetrics.unit),
               _PalettePicker(
@@ -199,7 +184,7 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
             name: name,
             iconKey: _iconKey,
             colorKey: _colorKey,
-            groupId: _groupId,
+            groupId: null,
           ),
         );
       } else {
@@ -207,7 +192,7 @@ class _ProjectEditorDialogState extends State<ProjectEditorDialog> {
           name: name,
           iconKey: _iconKey,
           colorKey: _colorKey,
-          groupId: _groupId,
+          groupId: null,
         );
       }
       Navigator.of(context).pop(true);
@@ -565,6 +550,8 @@ class _PalettePicker extends StatelessWidget {
   }
 }
 
+/* legacy group selector removed: projects are now flat */
+/*
 class _GroupSelector extends StatelessWidget {
   const _GroupSelector({
     required this.controller,
@@ -659,7 +646,9 @@ class _GroupSelector extends StatelessWidget {
     );
   }
 }
+*/
 
+/*
 class _GroupOption extends StatelessWidget {
   const _GroupOption({
     super.key,
@@ -704,3 +693,4 @@ class _GroupOption extends StatelessWidget {
     );
   }
 }
+*/

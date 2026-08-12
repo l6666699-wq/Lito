@@ -12,6 +12,7 @@ import '../../application/settings_controller.dart';
 import '../../application/window_controller.dart';
 import '../../domain/models/app_settings.dart';
 import '../../icons/app_icons.dart';
+import '../common/app_dialog.dart';
 import 'settings_appearance_section.dart';
 import 'settings_data_section.dart';
 import 'settings_general_section.dart';
@@ -308,7 +309,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<bool?> _confirmImport(BuildContext context) {
-    return showShadDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ShadDialog.alert(

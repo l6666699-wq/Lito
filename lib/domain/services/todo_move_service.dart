@@ -22,6 +22,7 @@ class TodoMoveService {
     required String targetId,
     required TodoMovePosition position,
     String? destinationProjectId,
+    String? destinationGroupId,
     bool allowCrossProject = false,
     DateTime? now,
   }) {
@@ -31,6 +32,7 @@ class TodoMoveService {
       targetId: targetId,
       position: position,
       destinationProjectId: destinationProjectId,
+      destinationGroupId: destinationGroupId,
       allowCrossProject: allowCrossProject,
       now: now,
     );
@@ -42,6 +44,7 @@ class TodoMoveService {
     required String targetId,
     required TodoMovePosition position,
     String? destinationProjectId,
+    String? destinationGroupId,
     bool allowCrossProject = false,
     DateTime? now,
   }) {
@@ -77,15 +80,26 @@ class TodoMoveService {
     }
 
     final targetProject = destinationProjectId ?? moving.projectId;
-    if (target.projectId != moving.projectId && destinationProjectId == null) {
+    final targetGroup = destinationGroupId ?? moving.groupId;
+    if ((target.projectId != moving.projectId ||
+            target.groupId != moving.groupId) &&
+        destinationProjectId == null &&
+        destinationGroupId == null) {
       throw StateError('Cross-project movement requires destinationProjectId');
     }
     if (destinationProjectId != null &&
         target.projectId != destinationProjectId) {
       throw StateError('Destination project must match the drop target');
     }
-    final projectChanged = targetProject != moving.projectId;
-    if (projectChanged && !allowCrossProject && destinationProjectId == null) {
+    if (destinationGroupId != null && target.groupId != destinationGroupId) {
+      throw StateError('Destination group must match the drop target');
+    }
+    final projectChanged = targetProject != moving.projectId ||
+        targetGroup != moving.groupId;
+    if (projectChanged &&
+        !allowCrossProject &&
+        destinationProjectId == null &&
+        destinationGroupId == null) {
       throw StateError('Cross-project movement requires destinationProjectId');
     }
 
@@ -134,6 +148,7 @@ class TodoMoveService {
       if (!subtree.contains(todo.id)) continue;
       updated[todo.id] = todo.copyWith(
         projectId: targetProject,
+        groupId: targetGroup,
         parentId: todo.id == movingId ? destinationParent : todo.parentId,
         updatedAt: stamp,
       );
@@ -151,7 +166,7 @@ class TodoMoveService {
     for (var i = 0; i < transformed.length; i++) {
       final todo = transformed[i];
       order[todo.id] = i;
-      final key = _siblingKey(todo.projectId, todo.parentId);
+      final key = _siblingKey(todo.projectId, todo.groupId, todo.parentId);
       siblingIds.putIfAbsent(key, () => <String>[]).add(todo.id);
     }
     for (final ids in siblingIds.values) {
@@ -165,9 +180,17 @@ class TodoMoveService {
       });
     }
 
-    final oldKey = _siblingKey(moving.projectId, moving.parentId);
+    final oldKey = _siblingKey(
+      moving.projectId,
+      moving.groupId,
+      moving.parentId,
+    );
     siblingIds[oldKey]?.remove(movingId);
-    final destinationKey = _siblingKey(targetProject, destinationParent);
+    final destinationKey = _siblingKey(
+      targetProject,
+      targetGroup,
+      destinationParent,
+    );
     final destinationSiblings = siblingIds.putIfAbsent(
       destinationKey,
       () => <String>[],
@@ -198,8 +221,12 @@ class TodoMoveService {
     ]);
   }
 
-  static String _siblingKey(String? projectId, String? parentId) {
-    return '${projectId ?? '<inbox>'}|${parentId ?? '<root>'}';
+  static String _siblingKey(
+    String? projectId,
+    String? groupId,
+    String? parentId,
+  ) {
+    return '${projectId ?? '<project>'}|${groupId ?? '<inbox>'}|${parentId ?? '<root>'}';
   }
 }
 
@@ -209,6 +236,7 @@ List<TodoItem> moveTodos({
   required String targetId,
   required TodoMovePosition position,
   String? destinationProjectId,
+  String? destinationGroupId,
   bool allowCrossProject = false,
   DateTime? now,
 }) => TodoMoveService.moveTodos(
@@ -216,7 +244,8 @@ List<TodoItem> moveTodos({
   movingId: movingId,
   targetId: targetId,
   position: position,
-  destinationProjectId: destinationProjectId,
+    destinationProjectId: destinationProjectId,
+    destinationGroupId: destinationGroupId,
   allowCrossProject: allowCrossProject,
   now: now,
 );

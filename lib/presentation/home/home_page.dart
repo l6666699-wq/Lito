@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../app/app_text.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../app/theme/app_motion.dart';
 import '../../application/home_page_controller.dart';
 import '../../application/workspace_controller.dart';
 import '../../domain/models/visible_todo_row.dart';
@@ -38,6 +39,8 @@ class _HomePageState extends State<HomePage> {
   bool _showFilterPanel = false;
   bool _composerVisible = false;
   String? _composerParentId;
+  String? _composerProjectId;
+  String? _composerGroupId;
   String? _composerError;
   bool _composerSubmitting = false;
   int _composerGeneration = 0;
@@ -71,14 +74,20 @@ class _HomePageState extends State<HomePage> {
   void _onComposerRequest() {
     final request = widget.composerController?.takeComposerRequest();
     if (request == null || !mounted) return;
-    _openComposer(request.parentId);
+    _openComposer(
+      parentId: request.parentId,
+      projectId: request.projectId,
+      groupId: request.groupId,
+    );
   }
 
-  void _openComposer([String? parentId]) {
+  void _openComposer({String? parentId, String? projectId, String? groupId}) {
     setState(() {
       _composerGeneration += 1;
       _composerVisible = true;
       _composerParentId = parentId;
+      _composerProjectId = projectId;
+      _composerGroupId = groupId;
       _composerError = null;
       _showFilterPanel = false;
     });
@@ -90,31 +99,40 @@ class _HomePageState extends State<HomePage> {
       _composerGeneration += 1;
       _composerVisible = false;
       _composerParentId = null;
+      _composerProjectId = null;
+      _composerGroupId = null;
       _composerError = null;
       _composerSubmitting = false;
     });
   }
 
-  void _submitComposer(String title) {
+  void _submitComposerDraft(TodoComposerDraft draft) {
     if (_composerSubmitting) return;
     final generation = _composerGeneration;
     _composerSubmitting = true;
-    unawaited(_submitComposerAndFlush(title, generation));
+    unawaited(_submitComposerAndFlush(draft, generation));
   }
 
-  Future<void> _submitComposerAndFlush(String title, int generation) async {
+  Future<void> _submitComposerAndFlush(
+    TodoComposerDraft draft,
+    int generation,
+  ) async {
     try {
       if (_composerParentId == null) {
         await controller.addTodoAndFlush(
-          title,
-          projectId: controller.scope == WorkspaceScope.project
-              ? controller.projectScopeId
-              : null,
+          draft.title,
+          projectId: draft.projectId,
+          groupId: draft.groupId,
+          useWorkspaceScope: false,
+          dueAt: draft.dueAt,
+          priority: draft.priority,
         );
       } else {
         await controller.createChildTodoAndFlush(
-          title,
+          draft.title,
           parentId: _composerParentId!,
+          dueAt: draft.dueAt,
+          priority: draft.priority,
         );
       }
       if (mounted && generation == _composerGeneration) _closeComposer();
@@ -156,7 +174,7 @@ class _HomePageState extends State<HomePage> {
         })
         .toList(growable: true);
     if (_sort == _HomeSort.manual || filtered.length < 2) {
-      return List.unmodifiable(filtered);
+      return _groupRowsByProjectIfNeeded(filtered);
     }
 
     // Sort root blocks while preserving each block's parent/child order. A
@@ -183,8 +201,29 @@ class _HomePageState extends State<HomePage> {
           return 0;
       }
     });
-    return List.unmodifiable(<VisibleTodoRow>[
+    return _groupRowsByProjectIfNeeded(<VisibleTodoRow>[
       for (final block in blocks) ...block,
+    ]);
+  }
+
+  List<VisibleTodoRow> _groupRowsByProjectIfNeeded(List<VisibleTodoRow> rows) {
+    if (controller.scope != WorkspaceScope.group || rows.length < 2) {
+      return List.unmodifiable(rows);
+    }
+
+    // Keep each parent/child block together, then place the blocks under the
+    // project that owns their root task. Group-level tasks use the null key
+    // and are rendered in the unassigned section.
+    final grouped = <String?, List<VisibleTodoRow>>{};
+    String? currentProjectId;
+    for (final row in rows) {
+      if (row.depth == 0 || grouped.isEmpty) {
+        currentProjectId = row.todo.projectId;
+      }
+      grouped.putIfAbsent(currentProjectId, () => <VisibleTodoRow>[]).add(row);
+    }
+    return List.unmodifiable(<VisibleTodoRow>[
+      for (final projectRows in grouped.values) ...projectRows,
     ]);
   }
 
@@ -237,7 +276,11 @@ class _HomePageState extends State<HomePage> {
                     filter: _filter,
                     sort: _sort,
                     onFilterChanged: (value) => setState(() => _filter = value),
-                    onAdd: () => _openComposer(),
+                    onAdd: () => _openComposer(
+                      projectId: controller.scope == WorkspaceScope.project
+                          ? controller.projectScopeId
+                          : null,
+                    ),
                     onExpandAll: _expandAll,
                     showFilterPanel: _showFilterPanel,
                     onToggleFilterPanel: () =>
@@ -257,10 +300,27 @@ class _HomePageState extends State<HomePage> {
                       rows: rows,
                       composerVisible: _composerVisible,
                       composerParentId: _composerParentId,
-                      onComposerSubmit: _submitComposer,
+                      composerProjectId:
+                          _composerProjectId ??
+                          (controller.scope == WorkspaceScope.project
+                              ? controller.projectScopeId
+                              : null),
+                      composerGroupId:
+                          _composerGroupId ??
+                          (controller.scope == WorkspaceScope.group
+                              ? controller.groupScopeId
+                              : null),
+                      onComposerOpen: () => _openComposer(
+                        projectId: controller.scope == WorkspaceScope.project
+                            ? controller.projectScopeId
+                            : null,
+                      ),
+                      onComposerSubmitDraft: _submitComposerDraft,
                       onComposerCancel: _closeComposer,
-                      onRequestAddChild: _openComposer,
-                      onRequestAddSibling: _openComposer,
+                      onRequestAddChild: (parentId) =>
+                          _openComposer(parentId: parentId),
+                      onRequestAddSibling: (parentId) =>
+                          _openComposer(parentId: parentId),
                       composerError: _composerError,
                       emptyLabel: _filter == _HomeFilter.completed
                           ? '没有已完成待办'
@@ -300,6 +360,12 @@ class _HomePageState extends State<HomePage> {
           if (project.id == id) return project.name;
         }
         return AppText.projects;
+      case WorkspaceScope.group:
+        final id = workspace.groupScopeId;
+        for (final group in workspace.groups) {
+          if (group.id == id) return group.name;
+        }
+        return '项目组';
     }
   }
 }
@@ -390,20 +456,6 @@ class _HomeHeader extends StatelessWidget {
                           style: TextStyle(
                             color: colors.textMuted,
                             fontSize: 12,
-                          ),
-                        ),
-                        // Keep the prior diagnostic copy in the source while
-                        // removing it from the product-visible subtitle.
-                        Opacity(
-                          opacity: 0,
-                          child: ExcludeSemantics(
-                            child: SizedBox(
-                              width: 0,
-                              height: 0,
-                              child: Text(
-                                '$datasetLabel · $count 项任务 · 可见 $visibleCount 行',
-                              ),
-                            ),
                           ),
                         ),
                       ],
@@ -553,6 +605,7 @@ class _HomeHeader extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 21,
+                                      height: 1,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: -.35,
                                     ),
@@ -565,21 +618,7 @@ class _HomeHeader extends StatelessWidget {
                                     style: TextStyle(
                                       color: colors.textMuted,
                                       fontSize: 12,
-                                    ),
-                                  ),
-                                  // Keep the prior diagnostic copy in the
-                                  // source while removing it from the
-                                  // product-visible subtitle.
-                                  Opacity(
-                                    opacity: 0,
-                                    child: ExcludeSemantics(
-                                      child: SizedBox(
-                                        width: 0,
-                                        height: 0,
-                                        child: Text(
-                                          '$datasetLabel · $count 项任务 · 可见 $visibleCount 行',
-                                        ),
-                                      ),
+                                      height: 1,
                                     ),
                                   ),
                                 ],
@@ -763,7 +802,8 @@ class _FilterChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
+        duration: AppMotion.fast,
+        curve: AppMotion.standardCurve,
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: AppMetrics.unit * 2),
         decoration: BoxDecoration(

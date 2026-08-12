@@ -73,11 +73,11 @@ class AppData {
     final migrated = schemaVersion == 1
         ? _migrateV1(json)
         : Map<String, dynamic>.from(json);
-    final projects = _readList(
+    final decodedProjects = _readList(
       migrated,
       'projects',
     ).map((entry) => Project.fromJson(entry)).toList(growable: false);
-    final todos = _readList(
+    final decodedTodos = _readList(
       migrated,
       'todos',
     ).map((entry) => TodoItem.fromJson(entry)).toList(growable: false);
@@ -85,16 +85,21 @@ class AppData {
       migrated,
       'trash',
     ).map((entry) => TrashItem.fromJson(entry)).toList(growable: false);
-    final groups = _readListOrEmpty(
+    final decodedGroups = _readListOrEmpty(
       migrated,
       'groups',
     ).map((entry) => ProjectGroup.fromJson(entry)).toList(growable: false);
+    final flattened = _flattenLegacyGroups(
+      groups: decodedGroups,
+      projects: decodedProjects,
+      todos: decodedTodos,
+    );
     return AppData(
       schemaVersion: currentSchemaVersion,
       revision: revision,
-      groups: groups,
-      projects: projects,
-      todos: todos,
+      groups: const <ProjectGroup>[],
+      projects: flattened.projects,
+      todos: flattened.todos,
       trash: trash,
     );
   }
@@ -154,6 +159,58 @@ class AppData {
     Object.hashAll(todos),
     Object.hashAll(trash),
   );
+}
+
+_FlattenedLegacyGroups _flattenLegacyGroups({
+  required List<ProjectGroup> groups,
+  required List<Project> projects,
+  required List<TodoItem> todos,
+}) {
+  if (groups.isEmpty &&
+      projects.every((project) => project.groupId == null) &&
+      todos.every((todo) => todo.groupId == null)) {
+    return _FlattenedLegacyGroups(projects: projects, todos: todos);
+  }
+
+  final projectIds = projects.map((project) => project.id).toSet();
+  final groupProjectIds = <String, String>{};
+  final flattenedProjects = <Project>[
+    for (final group in groups)
+      if (!projectIds.contains(group.id))
+        Project(
+          id: group.id,
+          name: group.name,
+          iconKey: group.iconKey,
+          colorKey: group.colorKey,
+          sortOrder: group.sortOrder,
+          archived: group.archived,
+          createdAt: group.createdAt,
+          updatedAt: group.updatedAt,
+        ),
+    for (final project in projects) project.copyWith(groupId: null),
+  ];
+  for (final group in groups) {
+    groupProjectIds[group.id] = group.id;
+  }
+
+  final flattenedTodos = <TodoItem>[
+    for (final todo in todos)
+      todo.copyWith(
+        projectId: todo.projectId ?? groupProjectIds[todo.groupId],
+        groupId: null,
+      ),
+  ];
+  return _FlattenedLegacyGroups(
+    projects: List.unmodifiable(flattenedProjects),
+    todos: List.unmodifiable(flattenedTodos),
+  );
+}
+
+class _FlattenedLegacyGroups {
+  const _FlattenedLegacyGroups({required this.projects, required this.todos});
+
+  final List<Project> projects;
+  final List<TodoItem> todos;
 }
 
 int _effectiveSchemaVersion(int version) =>

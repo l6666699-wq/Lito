@@ -9,6 +9,7 @@ import '../../domain/models/project.dart';
 import '../../domain/models/project_group.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
+import '../common/app_dialog.dart';
 import 'project_editor_dialog.dart';
 
 enum ProjectManagementAction {
@@ -28,7 +29,7 @@ abstract final class ProjectManagement {
     WorkspaceController controller, {
     String? initialGroupId,
   }) {
-    return showShadDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       builder: (context) => ProjectEditorDialog(
         controller: controller,
@@ -42,7 +43,7 @@ abstract final class ProjectManagement {
     WorkspaceController controller,
     Project project,
   ) {
-    return showShadDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       builder: (context) =>
           ProjectEditorDialog(controller: controller, project: project),
@@ -53,10 +54,7 @@ abstract final class ProjectManagement {
     BuildContext context,
     WorkspaceController controller,
   ) {
-    return showShadDialog<bool>(
-      context: context,
-      builder: (context) => ProjectGroupEditorDialog(controller: controller),
-    );
+    return showCreateProject(context, controller);
   }
 
   static Future<bool?> showEditGroup(
@@ -64,7 +62,7 @@ abstract final class ProjectManagement {
     WorkspaceController controller,
     ProjectGroup group,
   ) {
-    return showShadDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       builder: (context) =>
           ProjectGroupEditorDialog(controller: controller, group: group),
@@ -197,7 +195,7 @@ abstract final class ProjectManagement {
     required String iconKey,
     required String colorKey,
   }) {
-    return showShadDialog<ProjectManagementAction>(
+    return showAppDialog<ProjectManagementAction>(
       context: context,
       builder: (context) => _ActionDialog(
         title: title,
@@ -215,7 +213,7 @@ abstract final class ProjectManagement {
     required String description,
     required String confirmLabel,
   }) {
-    return showShadDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ShadDialog.alert(

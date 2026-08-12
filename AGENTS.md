@@ -1,5 +1,86 @@
 # AGENTS.md — LiteTodo
 
+## Code Review Graph
+
+This repository uses code-review-graph (CRG) for code intelligence.
+
+### Mandatory usage
+
+For any non-trivial task involving:
+- multiple files
+- shared services
+- public APIs
+- DTOs
+- database entities
+- module dependencies
+- refactoring
+- bug investigation
+- architecture changes
+
+Codex MUST use code-review-graph before implementation.
+
+### Before implementation
+
+1. Call `get_minimal_context_tool` for the task.
+2. Use targeted graph queries to identify:
+   - callers
+   - callees
+   - imports
+   - dependents
+   - execution flows
+3. Check impact radius before modifying shared or public code.
+4. Read source files only after graph analysis identifies relevant files.
+
+Prefer:
+
+CRG → targeted source inspection → implementation
+
+instead of:
+
+repository-wide grep → broad file reading → implementation
+
+### After implementation
+
+For non-trivial changes:
+
+1. Use `detect_changes_tool`.
+2. Check affected execution flows.
+3. Check impacted tests.
+4. Review possible regressions.
+5. Run lint, typecheck, tests and build as appropriate.
+
+### Graph freshness
+
+Do not rebuild the entire graph for every task.
+
+Use the existing graph by default.
+
+Only update/rebuild when:
+- the graph is missing
+- the graph is stale
+- a large rebase occurred
+- a large external change occurred
+- dependency structure changed significantly
+
+### Exceptions
+
+CRG is not required for trivial isolated changes such as:
+- text changes
+- comments
+- simple CSS adjustments
+- obvious single-file edits with no shared behavior
+
+Do not treat CRG as authoritative for runtime-only relationships such as:
+- dynamic dependency injection
+- events
+- queues
+- reflection
+- runtime registration
+
+Inspect source and tests when static analysis may be incomplete.
+
+
+
 ## 1. Project Goal
 
 Build LiteTodo as a lightweight, local-first Windows desktop tree Todo application.

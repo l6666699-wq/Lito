@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../app/app_constants.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_motion.dart';
 import '../../application/quick_add_controller.dart';
 import '../../application/app_navigation_controller.dart';
 import '../../application/sticky_notes_controller.dart';
@@ -52,6 +53,9 @@ class AppShell extends StatelessWidget {
             final content = switch (windowController.state) {
               WindowLifecycleState.fullVisible ||
               WindowLifecycleState.hiddenToTray => FullAppShell(
+                key: const ValueKey<WindowLifecycleState>(
+                  WindowLifecycleState.fullVisible,
+                ),
                 controller: controller,
                 windowController: windowController,
                 navigationController: navigationController,
@@ -59,15 +63,34 @@ class AppShell extends StatelessWidget {
                 stickyNotesController: stickyNotesController,
               ),
               WindowLifecycleState.compactVisible => CompactWorkspace(
+                key: const ValueKey<WindowLifecycleState>(
+                  WindowLifecycleState.compactVisible,
+                ),
                 controller: controller,
                 windowController: windowController,
               ),
               WindowLifecycleState.quickAddVisible => QuickAddView(
+                key: const ValueKey<WindowLifecycleState>(
+                  WindowLifecycleState.quickAddVisible,
+                ),
                 controller: quickAddController,
               ),
-              WindowLifecycleState.exiting => const SizedBox.shrink(),
+              WindowLifecycleState.exiting => const SizedBox.shrink(
+                key: ValueKey<WindowLifecycleState>(
+                  WindowLifecycleState.exiting,
+                ),
+              ),
             };
-            return content;
+            return AnimatedSwitcher(
+              duration: AppMotion.normal,
+              reverseDuration: AppMotion.fast,
+              switchInCurve: AppMotion.enterCurve,
+              switchOutCurve: AppMotion.exitCurve,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: content,
+            );
           },
         ),
       ),

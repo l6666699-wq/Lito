@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../app/theme/app_motion.dart';
 import '../../domain/services/todo_move_service.dart';
+import '../../domain/models/todo_item.dart';
 import '../../domain/models/visible_todo_row.dart';
 import '../../icons/app_icons.dart';
 import 'todo_drag_data.dart';
@@ -25,6 +27,7 @@ class TodoRow extends StatefulWidget {
     this.onArchive,
     this.onDelete,
     this.selected = false,
+    this.canEdit = true,
     this.onSelect,
     this.isRoot = false,
     this.sectionNumber,
@@ -49,6 +52,7 @@ class TodoRow extends StatefulWidget {
   final VoidCallback? onArchive;
   final VoidCallback? onDelete;
   final bool selected;
+  final bool canEdit;
   final VoidCallback? onSelect;
   final bool isRoot;
   final int? sectionNumber;
@@ -101,7 +105,7 @@ class _TodoRowState extends State<TodoRow> {
   }
 
   void _beginEdit({bool deferNotification = false}) {
-    if (widget.onEdit == null) return;
+    if (!widget.canEdit || widget.onEdit == null) return;
     setState(() {
       _editing = true;
       _editController.value = TextEditingValue(
@@ -150,6 +154,11 @@ class _TodoRowState extends State<TodoRow> {
     }
   }
 
+  void _setHovered(bool value) {
+    if (_hovered == value || !mounted) return;
+    setState(() => _hovered = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -165,6 +174,7 @@ class _TodoRowState extends State<TodoRow> {
         : _hovered
         ? colors.surfaceSubtle
         : colors.transparent;
+    const horizontalInset = AppMetrics.unit * 2;
 
     return Builder(
       builder: (_) {
@@ -201,8 +211,8 @@ class _TodoRowState extends State<TodoRow> {
               behavior: HitTestBehavior.opaque,
               onPointerDown: (_) => widget.onSelect?.call(),
               child: MouseRegion(
-                onEnter: (_) => setState(() => _hovered = true),
-                onExit: (_) => setState(() => _hovered = false),
+                onEnter: (_) => _setHovered(true),
+                onExit: (_) => _setHovered(false),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
@@ -211,14 +221,16 @@ class _TodoRowState extends State<TodoRow> {
                   onDoubleTap: _beginEdit,
                   child: AnimatedContainer(
                     key: _dropRegionKey,
-                    duration: const Duration(milliseconds: 100),
-                    curve: Curves.easeOut,
+                    duration: AppMotion.instant,
+                    curve: AppMotion.standardCurve,
                     height: rowHeight,
                     margin: EdgeInsets.only(
-                      left: widget.isRoot
-                          ? 0
-                          : widget.row.depth * AppMetrics.treeIndent,
-                      right: widget.isRoot ? 0 : AppMetrics.unit * 2,
+                      left:
+                          horizontalInset +
+                          (widget.isRoot
+                              ? 0
+                              : widget.row.depth * AppMetrics.treeIndent),
+                      right: horizontalInset,
                       top: widget.isRoot ? 0 : 1,
                     ),
                     padding: EdgeInsets.only(
@@ -402,6 +414,33 @@ class _TodoRowState extends State<TodoRow> {
     );
   }
 
+  Widget _hoverActions(BuildContext context, {required List<Widget> actions}) {
+    return IgnorePointer(
+      ignoring: !_hovered,
+      child: AnimatedOpacity(
+        duration: AppMotion.instant,
+        curve: AppMotion.enterCurve,
+        opacity: _hovered ? 1 : 0,
+        child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+      ),
+    );
+  }
+
+  Widget _priorityIndicator(AppColorScheme colors) {
+    final priority = widget.row.todo.priority;
+    if (priority == TodoPriority.none) return const SizedBox.shrink();
+    final color = switch (priority) {
+      TodoPriority.high => const Color(0xFFE34B4B),
+      TodoPriority.medium => const Color(0xFFE49A25),
+      TodoPriority.low => colors.focus,
+      TodoPriority.none => colors.textMuted,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(right: AppMetrics.unit * 2),
+      child: Icon(AppIcons.flag, size: 14, color: color),
+    );
+  }
+
   Widget _leadingCheck({
     required BuildContext context,
     required bool completed,
@@ -418,7 +457,9 @@ class _TodoRowState extends State<TodoRow> {
         label: completed
             ? '取消完成 ${widget.row.todo.title}'
             : '完成 ${widget.row.todo.title}',
-        child: Container(
+        child: AnimatedContainer(
+          duration: AppMotion.completion,
+          curve: AppMotion.standardCurve,
           width: widget.isRoot ? 19 : 18,
           height: widget.isRoot ? 19 : 18,
           alignment: Alignment.center,
@@ -430,13 +471,65 @@ class _TodoRowState extends State<TodoRow> {
             ),
             borderRadius: BorderRadius.circular(widget.isRoot ? 5 : 4),
           ),
-          child: completed
-              ? Icon(AppIcons.check, color: colors.white, size: 12)
-              : partial
-              ? Icon(AppIcons.minus, color: colors.focus, size: 12)
-              : null,
+          child: AnimatedSwitcher(
+            duration: AppMotion.fast,
+            switchInCurve: AppMotion.enterCurve,
+            switchOutCurve: AppMotion.exitCurve,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              );
+            },
+            child: completed
+                ? Icon(
+                    AppIcons.check,
+                    key: const ValueKey<String>('todo-check-complete'),
+                    color: colors.white,
+                    size: 12,
+                  )
+                : partial
+                ? Icon(
+                    AppIcons.minus,
+                    key: const ValueKey<String>('todo-check-partial'),
+                    color: colors.focus,
+                    size: 12,
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey<String>('todo-check-empty'),
+                  ),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _animatedTitle({
+    required String text,
+    required Color color,
+    required double fontSize,
+    FontWeight? fontWeight,
+    required bool completed,
+  }) {
+    return AnimatedDefaultTextStyle(
+      duration: AppMotion.completion,
+      curve: AppMotion.standardCurve,
+      style: TextStyle(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        decoration: completed ? TextDecoration.lineThrough : null,
+      ),
+      child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+  }
+
+  Widget _collapseChevron(AppColorScheme colors, {required double size}) {
+    return AnimatedRotation(
+      turns: widget.row.todo.collapsed ? 0 : .25,
+      duration: AppMotion.tree,
+      curve: AppMotion.enterCurve,
+      child: Icon(AppIcons.chevronRight, size: size, color: colors.textMuted),
     );
   }
 
@@ -458,57 +551,51 @@ class _TodoRowState extends State<TodoRow> {
                 onPointerUp: (_) => widget.onToggleCollapsed(),
                 child: SizedBox(
                   width: 14,
-                  child: Icon(
-                    widget.row.todo.collapsed
-                        ? AppIcons.chevronRight
-                        : AppIcons.chevronDown,
-                    size: 13,
-                    color: colors.textMuted,
-                  ),
+                  child: _collapseChevron(colors, size: 13),
                 ),
               )
             : const SizedBox(width: 14),
         const SizedBox(width: AppMetrics.unit * 2),
         _leadingCheck(context: context, completed: completed, partial: partial),
         const SizedBox(width: AppMetrics.unit * 2),
+        _priorityIndicator(colors),
         Expanded(
-          child: Text(
-            widget.row.todo.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: titleColor,
-              fontSize: 13,
-              decoration: completed ? TextDecoration.lineThrough : null,
-            ),
+          child: _animatedTitle(
+            text: widget.row.todo.title,
+            color: titleColor,
+            fontSize: 13,
+            completed: completed,
           ),
         ),
-        if (_hovered) ...[
-          _actionButton(
-            context: context,
-            icon: AppIcons.add,
-            tooltip: '添加子任务',
-            onPressed: widget.onAddChild,
-          ),
-          _actionButton(
-            context: context,
-            icon: AppIcons.archive,
-            tooltip: '归档任务',
-            onPressed: widget.onArchive,
-          ),
-          _actionButton(
-            context: context,
-            icon: AppIcons.delete,
-            tooltip: '移入回收站',
-            onPressed: widget.onDelete,
-          ),
-          _actionButton(
-            context: context,
-            icon: AppIcons.edit,
-            tooltip: '编辑任务',
-            onPressed: _beginEdit,
-          ),
-        ],
+        _hoverActions(
+          context,
+          actions: [
+            _actionButton(
+              context: context,
+              icon: AppIcons.add,
+              tooltip: '添加子任务',
+              onPressed: widget.onAddChild,
+            ),
+            _actionButton(
+              context: context,
+              icon: AppIcons.archive,
+              tooltip: '归档任务',
+              onPressed: widget.onArchive,
+            ),
+            _actionButton(
+              context: context,
+              icon: AppIcons.delete,
+              tooltip: '移入回收站',
+              onPressed: widget.onDelete,
+            ),
+            _actionButton(
+              context: context,
+              icon: AppIcons.edit,
+              tooltip: '编辑任务',
+              onPressed: _beginEdit,
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -533,13 +620,7 @@ class _TodoRowState extends State<TodoRow> {
                 onPointerUp: (_) => widget.onToggleCollapsed(),
                 child: SizedBox(
                   width: 22,
-                  child: Icon(
-                    widget.row.todo.collapsed
-                        ? AppIcons.chevronRight
-                        : AppIcons.chevronDown,
-                    size: 15,
-                    color: colors.textMuted,
-                  ),
+                  child: _collapseChevron(colors, size: 15),
                 ),
               )
             : const SizedBox(width: 22),
@@ -566,17 +647,14 @@ class _TodoRowState extends State<TodoRow> {
         ],
         _leadingCheck(context: context, completed: completed, partial: partial),
         const SizedBox(width: AppMetrics.unit * 2),
+        _priorityIndicator(colors),
         Expanded(
-          child: Text(
-            widget.row.todo.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: titleColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              decoration: completed ? TextDecoration.lineThrough : null,
-            ),
+          child: _animatedTitle(
+            text: widget.row.todo.title,
+            color: titleColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            completed: completed,
           ),
         ),
         if (total > 0) ...[
@@ -604,32 +682,35 @@ class _TodoRowState extends State<TodoRow> {
             ),
           ),
         ],
-        if (_hovered) ...[
-          _actionButton(
-            context: context,
-            icon: AppIcons.add,
-            tooltip: '添加子任务',
-            onPressed: widget.onAddChild,
-          ),
-          _actionButton(
-            context: context,
-            icon: AppIcons.edit,
-            tooltip: '编辑任务',
-            onPressed: _beginEdit,
-          ),
-          _actionButton(
-            context: context,
-            icon: AppIcons.archive,
-            tooltip: '归档任务',
-            onPressed: widget.onArchive,
-          ),
-          _actionButton(
-            context: context,
-            icon: AppIcons.delete,
-            tooltip: '移入回收站',
-            onPressed: widget.onDelete,
-          ),
-        ],
+        _hoverActions(
+          context,
+          actions: [
+            _actionButton(
+              context: context,
+              icon: AppIcons.add,
+              tooltip: '添加子任务',
+              onPressed: widget.onAddChild,
+            ),
+            _actionButton(
+              context: context,
+              icon: AppIcons.edit,
+              tooltip: '编辑任务',
+              onPressed: _beginEdit,
+            ),
+            _actionButton(
+              context: context,
+              icon: AppIcons.archive,
+              tooltip: '归档任务',
+              onPressed: widget.onArchive,
+            ),
+            _actionButton(
+              context: context,
+              icon: AppIcons.delete,
+              tooltip: '移入回收站',
+              onPressed: widget.onDelete,
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -654,16 +735,21 @@ class _InlineEditor extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: EditableText(
-            controller: controller,
-            focusNode: focusNode,
-            style: TextStyle(color: colors.text, fontSize: 13),
-            cursorColor: colors.focus,
-            backgroundCursorColor: colors.textFaint,
-            selectionColor: colors.focusSoft,
-            maxLines: 1,
-            onSubmitted: onSubmitted,
-            autofocus: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppMetrics.unit * 2,
+            ),
+            child: EditableText(
+              controller: controller,
+              focusNode: focusNode,
+              style: TextStyle(color: colors.text, fontSize: 13),
+              cursorColor: colors.focus,
+              backgroundCursorColor: colors.textFaint,
+              selectionColor: colors.focusSoft,
+              maxLines: 1,
+              onSubmitted: onSubmitted,
+              autofocus: false,
+            ),
           ),
         ),
         GestureDetector(

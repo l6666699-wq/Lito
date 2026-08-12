@@ -173,8 +173,7 @@ class TodoStatistics {
     this.heatmap = const <HeatmapCell>[],
     this.focusHoursSupported = false,
     this.focusHours,
-    this.eventBasis =
-        '完成时间（completedAt），否则更新时间（updatedAt），否则创建时间（createdAt）；每个任务计 1 次事件',
+    this.eventBasis = '完成时间（completedAt）；每个已完成任务计 1 次事件',
   });
 
   final int total;
@@ -346,7 +345,7 @@ class StatisticsService {
         .toList(growable: false);
     final daily = _daily(created, range, filterByRange);
     final byProject = _projects(created, completedEvents, projectById);
-    final heatmap = _heatmap(available, range, filterByRange);
+    final heatmap = _heatmap(completedEvents, range, filterByRange);
     return TodoStatistics(
       total: created.length,
       completed: completedEvents.length,
@@ -458,11 +457,7 @@ class StatisticsService {
     ]);
   }
 
-  DateTime? _heatmapEvent(TodoItem todo) {
-    if (todo.completed && todo.completedAt != null) return todo.completedAt;
-    if (todo.updatedAt != todo.createdAt) return todo.updatedAt;
-    return todo.createdAt;
-  }
+  DateTime? _heatmapEvent(TodoItem todo) => todo.completedAt;
 }
 
 DateTime _localDay(DateTime value) =>

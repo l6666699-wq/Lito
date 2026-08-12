@@ -282,7 +282,9 @@ class DataTransferService implements DataTransferGateway {
     for (final todo in data.todos) {
       addId(todo.id);
       if (todo.title.trim().isEmpty ||
-          (todo.projectId != null && !projectIds.contains(todo.projectId))) {
+          (todo.projectId != null && !projectIds.contains(todo.projectId)) ||
+          (todo.groupId != null && !groupIds.contains(todo.groupId)) ||
+          (todo.projectId != null && todo.groupId != null)) {
         throw const DataTransferException(DataTransferErrorCode.invalidData);
       }
       if (todoById.containsKey(todo.id)) {
@@ -295,7 +297,9 @@ class DataTransferService implements DataTransferGateway {
         throw const DataTransferException(DataTransferErrorCode.invalidData);
       }
       final parent = todo.parentId == null ? null : todoById[todo.parentId];
-      if (parent != null && parent.projectId != todo.projectId) {
+      if (parent != null &&
+          (parent.projectId != todo.projectId ||
+              parent.groupId != todo.groupId)) {
         throw const DataTransferException(DataTransferErrorCode.invalidData);
       }
     }
@@ -360,7 +364,9 @@ class DataTransferService implements DataTransferGateway {
       final parent = todo.parentId == null
           ? null
           : todos.firstWhere((entry) => entry.id == todo.parentId);
-      if (parent != null && parent.projectId != todo.projectId) {
+      if (parent != null &&
+          (parent.projectId != todo.projectId ||
+              parent.groupId != todo.groupId)) {
         throw const DataTransferException(DataTransferErrorCode.invalidData);
       }
     }
@@ -377,12 +383,14 @@ class DataTransferService implements DataTransferGateway {
     final ids = todos.map((todo) => todo.id).toSet();
     for (final todo in todos) {
       if (todo.projectId != project.id ||
+          todo.groupId != null ||
           (todo.parentId != null && !ids.contains(todo.parentId))) {
         throw const DataTransferException(DataTransferErrorCode.invalidData);
       }
       if (todo.parentId != null) {
         final parent = todos.firstWhere((entry) => entry.id == todo.parentId);
-        if (parent.projectId != todo.projectId) {
+        if (parent.projectId != todo.projectId ||
+            parent.groupId != todo.groupId) {
           throw const DataTransferException(DataTransferErrorCode.invalidData);
         }
       }

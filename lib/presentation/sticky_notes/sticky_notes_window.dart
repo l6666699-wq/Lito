@@ -6,12 +6,16 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 import '../../app/app_text.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../app/theme/app_motion.dart';
+import '../../app/theme/project_palette.dart';
 import '../../application/workspace_controller.dart';
+import '../../domain/models/project.dart';
 import '../../domain/models/visible_todo_row.dart';
 import '../../domain/services/todo_move_service.dart';
 import '../../infrastructure/platform/sticky_notes_window_service.dart'
     show StickyNotesSecondaryChannel;
 import '../../icons/app_icons.dart';
+import '../../icons/project_icon.dart';
 
 const _stickyWindowInset = AppMetrics.unit * 2;
 const _stickyListInset = AppMetrics.unit;
@@ -34,6 +38,7 @@ class StickyNotesWindow extends StatelessWidget {
     required this.controller,
     required this.windowService,
     required this.projectId,
+    this.groupId,
     required this.windowKey,
     this.onToggleTodoCompleted,
     this.onEditTodoTitle,
@@ -44,6 +49,7 @@ class StickyNotesWindow extends StatelessWidget {
   final WorkspaceController controller;
   final StickyNotesSecondaryChannel windowService;
   final String? projectId;
+  final String? groupId;
   final String windowKey;
   final FutureOr<void> Function(String todoId)? onToggleTodoCompleted;
   final FutureOr<void> Function(String todoId, String title)? onEditTodoTitle;
@@ -52,7 +58,8 @@ class StickyNotesWindow extends StatelessWidget {
     String movingId,
     String targetId,
     TodoMovePosition position,
-  )? onReorderTodo;
+  )?
+  onReorderTodo;
 
   Future<void> _toggleTodoDirectly(String todoId) async {
     controller.toggleTodoCompleted(todoId);
@@ -65,7 +72,7 @@ class StickyNotesWindow extends StatelessWidget {
   }
 
   Future<void> _addTodoDirectly(String title) =>
-      controller.addTodoAndFlush(title, projectId: projectId);
+      controller.addTodoAndFlush(title, projectId: projectId, groupId: groupId);
 
   Future<void> _reorderTodoDirectly(
     String movingId,
@@ -82,22 +89,38 @@ class StickyNotesWindow extends StatelessWidget {
       listenable: controller,
       builder: (context, child) {
         final colors = AppColors.of(context);
-        final rows = controller.visibleRowsForProject(projectId);
+        final rows = groupId == null
+            ? controller.visibleRowsForProject(projectId)
+            : controller.visibleRowsForGroup(groupId!);
         var title = AppText.inbox;
-        if (projectId != null) {
+        Project? projectForHeader;
+        if (groupId != null) {
+          for (final group in controller.groups) {
+            if (group.id == groupId) {
+              title = group.name;
+              break;
+            }
+          }
+        } else if (projectId != null) {
           for (final project in controller.projects) {
             if (project.id == projectId) {
               title = project.name;
+              projectForHeader = project;
               break;
             }
           }
         }
+        final headerPalette = projectForHeader == null
+            ? null
+            : ProjectPalette.resolve(projectForHeader.colorKey);
         return ColoredBox(
           color: colors.canvas,
           child: Column(
             children: [
               _StickyHeader(
                 title: title,
+                projectIconKey: projectForHeader?.iconKey,
+                accentColor: headerPalette?.accent,
                 windowKey: windowKey,
                 windowService: windowService,
               ),
@@ -139,17 +162,22 @@ class StickyNotesWindow extends StatelessWidget {
 class _StickyHeader extends StatelessWidget {
   const _StickyHeader({
     required this.title,
+    required this.projectIconKey,
+    required this.accentColor,
     required this.windowKey,
     required this.windowService,
   });
 
   final String title;
+  final String? projectIconKey;
+  final Color? accentColor;
   final String windowKey;
   final StickyNotesSecondaryChannel windowService;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final accent = accentColor ?? colors.focus;
     return DecoratedBox(
       key: const ValueKey<String>('sticky-header'),
       decoration: BoxDecoration(
@@ -176,11 +204,17 @@ class _StickyHeader extends StatelessWidget {
                         unawaited(windowService.startDragging(windowKey)),
                     child: Row(
                       children: [
-                        Icon(
-                          AppIcons.stickyNotes,
-                          color: colors.focus,
-                          size: AppMetrics.iconSize + 2,
-                        ),
+                        projectIconKey == null
+                            ? Icon(
+                                AppIcons.stickyNotes,
+                                color: accent,
+                                size: AppMetrics.iconSize + 2,
+                              )
+                            : ProjectIcon(
+                                iconKey: projectIconKey!,
+                                color: accent,
+                                size: AppMetrics.iconSize + 2,
+                              ),
                         const SizedBox(width: AppMetrics.unit * 2),
                         Expanded(
                           child: Text(
@@ -283,7 +317,8 @@ class _StickyTodoList extends StatefulWidget {
     String movingId,
     String targetId,
     TodoMovePosition position,
-  ) onReorderTodo;
+  )
+  onReorderTodo;
 
   @override
   State<_StickyTodoList> createState() => _StickyTodoListState();
@@ -424,7 +459,8 @@ class _StickyTaskRow extends StatefulWidget {
     String movingId,
     String targetId,
     TodoMovePosition position,
-  ) onReorderTodo;
+  )
+  onReorderTodo;
 
   @override
   State<_StickyTaskRow> createState() => _StickyTaskRowState();
@@ -463,11 +499,7 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
     if (position == null || movingId == widget.row.todo.id) return;
     unawaited(
       Future<void>.sync(
-        () => widget.onReorderTodo(
-          movingId,
-          widget.row.todo.id,
-          position,
-        ),
+        () => widget.onReorderTodo(movingId, widget.row.todo.id, position),
       ),
     );
   }
@@ -561,76 +593,77 @@ class _StickyTaskRowState extends State<_StickyTaskRow> {
           onTap: widget.onSelect,
           onDoubleTap: _beginEdit,
           child: AnimatedContainer(
-          duration: Duration(milliseconds: AppMetrics.hoverDurationMs.round()),
-          height: _stickyRowHeight,
-          margin: const EdgeInsets.only(top: _stickyRowGap),
-          padding: const EdgeInsets.symmetric(
-            horizontal: _stickyRowHorizontalPadding,
-          ),
-          decoration: BoxDecoration(
-            color: _dropPosition == null ? rowBackground : colors.focusSoft,
-            border: Border(bottom: BorderSide(color: colors.border)),
-            borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
-          ),
-          child: Row(
-            children: [
-              SizedBox(width: row.depth * AppMetrics.treeIndent),
-              _StickyDragAffordance(todoId: row.todo.id),
-              const SizedBox(width: _stickyControlGap),
-              if (widget.hasChildren)
-                Icon(
-                  row.todo.collapsed
-                      ? AppIcons.chevronRight
-                      : AppIcons.chevronDown,
-                  size: AppMetrics.iconSize - 2,
-                  color: colors.textMuted,
-                )
-              else
-                const SizedBox(width: AppMetrics.iconSize - 2),
-              const SizedBox(width: _stickyControlGap),
-              _StickyCheckbox(
-                todoId: row.todo.id,
-                completed: completed,
-                partial: partial,
-                title: row.todo.title,
-                onToggle: () => unawaited(
-                  Future<void>.sync(
-                    () => widget.onToggleTodoCompleted(row.todo.id),
+            duration: AppMotion.instant,
+            curve: AppMotion.standardCurve,
+            height: _stickyRowHeight,
+            margin: const EdgeInsets.only(top: _stickyRowGap),
+            padding: const EdgeInsets.symmetric(
+              horizontal: _stickyRowHorizontalPadding,
+            ),
+            decoration: BoxDecoration(
+              color: _dropPosition == null ? rowBackground : colors.focusSoft,
+              border: Border(bottom: BorderSide(color: colors.border)),
+              borderRadius: BorderRadius.circular(AppMetrics.smallRadius),
+            ),
+            child: Row(
+              children: [
+                SizedBox(width: row.depth * AppMetrics.treeIndent),
+                _StickyDragAffordance(todoId: row.todo.id),
+                if (widget.hasChildren) ...[
+                  const SizedBox(width: _stickyControlGap),
+                  Icon(
+                    row.todo.collapsed
+                        ? AppIcons.chevronRight
+                        : AppIcons.chevronDown,
+                    size: AppMetrics.iconSize - 2,
+                    color: colors.textMuted,
+                  ),
+                  const SizedBox(width: _stickyControlGap),
+                ] else
+                  const SizedBox(width: AppMetrics.unit * 2),
+                _StickyCheckbox(
+                  todoId: row.todo.id,
+                  completed: completed,
+                  partial: partial,
+                  title: row.todo.title,
+                  onToggle: () => unawaited(
+                    Future<void>.sync(
+                      () => widget.onToggleTodoCompleted(row.todo.id),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: _stickyControlGap),
-              Expanded(
-                child: _editing
-                    ? _StickyInlineEditor(
-                        controller: _editController,
-                        focusNode: _editFocusNode,
-                        onSubmitted: (_) => _commitEdit(),
-                        onCancel: _cancelEdit,
-                      )
-                    : Listener(
-                        behavior: HitTestBehavior.opaque,
-                        onPointerUp: (_) => _beginEdit(),
-                        child: Text(
-                          row.todo.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: titleColor,
-                            fontSize: 13,
-                            fontWeight: widget.hasChildren
-                                ? FontWeight.w600
-                                : null,
-                            decoration: completed
-                                ? TextDecoration.lineThrough
-                                : null,
+                const SizedBox(width: _stickyControlGap),
+                Expanded(
+                  child: _editing
+                      ? _StickyInlineEditor(
+                          controller: _editController,
+                          focusNode: _editFocusNode,
+                          onSubmitted: (_) => _commitEdit(),
+                          onCancel: _cancelEdit,
+                        )
+                      : Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerUp: (_) => _beginEdit(),
+                          child: Text(
+                            row.todo.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: titleColor,
+                              fontSize: 13,
+                              fontWeight: widget.hasChildren
+                                  ? FontWeight.w600
+                                  : null,
+                              decoration: completed
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
                           ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -713,10 +746,7 @@ class _StickyDragAffordance extends StatelessWidget {
           size: AppMetrics.iconSize,
           color: colors.focus,
         ),
-        childWhenDragging: Opacity(
-          opacity: .35,
-          child: _buildHandle(colors),
-        ),
+        childWhenDragging: Opacity(opacity: .35, child: _buildHandle(colors)),
         child: _buildHandle(colors),
       ),
     );

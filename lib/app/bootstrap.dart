@@ -223,9 +223,20 @@ Future<void> bootstrapStickyNotesWindow(
 ) async {
   final workspace = WorkspaceController();
   final channel = StickyNotesSecondaryChannel();
+  final stickySettings = ValueNotifier<AppSettings>(AppSettings());
+  try {
+    final repository = await createDefaultSettingsRepository();
+    stickySettings.value = (await repository.load()).settings;
+  } catch (_) {
+    // The primary engine still sends its live settings snapshot after startup.
+  }
   try {
     final snapshot = await channel.readSnapshot(arguments.key);
-    if (snapshot != null) applyStickySnapshot(workspace, snapshot);
+    if (snapshot != null) {
+      applyStickySnapshot(workspace, snapshot);
+      final settings = readStickySnapshotSettings(snapshot);
+      if (settings != null) stickySettings.value = settings;
+    }
   } catch (_) {
     // The first sync from the primary engine can arrive after this isolate's
     // first frame. The channel listener below fills that small startup gap.
@@ -234,6 +245,8 @@ Future<void> bootstrapStickyNotesWindow(
     onSnapshot: (snapshot) {
       try {
         applyStickySnapshot(workspace, snapshot);
+        final settings = readStickySnapshotSettings(snapshot);
+        if (settings != null) stickySettings.value = settings;
       } catch (_) {
         // Ignore malformed/stale snapshots; the next primary revision will
         // retry and the existing projection remains visible.
@@ -244,14 +257,20 @@ Future<void> bootstrapStickyNotesWindow(
   // read the manager's retained snapshot once more after the handler exists.
   try {
     final retrySnapshot = await channel.readSnapshot(arguments.key);
-    if (retrySnapshot != null) applyStickySnapshot(workspace, retrySnapshot);
+    if (retrySnapshot != null) {
+      applyStickySnapshot(workspace, retrySnapshot);
+      final settings = readStickySnapshotSettings(retrySnapshot);
+      if (settings != null) stickySettings.value = settings;
+    }
   } catch (_) {}
   runApp(
     StickyNotesSecondaryApp(
       workspace: workspace,
       windowService: channel,
       projectId: arguments.projectId,
+      groupId: arguments.groupId,
       windowKey: arguments.key,
+      settingsListenable: stickySettings,
     ),
   );
 }
@@ -274,6 +293,7 @@ void installStickyMutationHandler(WorkspaceController workspace) {
     final arguments = Map<String, Object?>.from(rawArguments);
     final operation = arguments['operation'];
     final todoId = arguments['todoId'] as String?;
+    final groupId = arguments['groupId'] as String?;
     switch (operation) {
       case 'toggleCompleted':
         if (todoId == null || todoId.isEmpty) {
@@ -305,6 +325,7 @@ void installStickyMutationHandler(WorkspaceController workspace) {
         await workspace.addTodoAndFlush(
           title,
           projectId: arguments['projectId'] as String?,
+          groupId: groupId,
         );
       case 'reorderTodo':
         final targetId = arguments['targetId'] as String?;

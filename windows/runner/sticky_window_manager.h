@@ -42,7 +42,9 @@ class StickyWindowManager {
   void Close(const std::string& key);
 
  private:
-  bool Open(const std::string& key, const std::string& project_id);
+  bool Open(const std::string& key,
+            const std::string& project_id,
+            const std::string& group_id);
   void Sync(const std::string& key, const std::string& snapshot);
   void SetAlwaysOnTop(const std::string& key, bool value);
   void StartDragging(const std::string& key);

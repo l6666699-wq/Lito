@@ -1,18 +1,22 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:litetodo/app/sticky_notes_app.dart';
+import 'package:litetodo/app/theme/app_colors.dart';
 import 'package:litetodo/app/theme/app_metrics.dart';
 import 'package:litetodo/app/theme/app_theme.dart';
+import 'package:litetodo/app/theme/project_palette.dart';
 import 'package:litetodo/application/app_navigation_controller.dart';
 import 'package:litetodo/application/quick_add_controller.dart';
 import 'package:litetodo/application/sticky_notes_controller.dart';
 import 'package:litetodo/application/window_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
+import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/domain/models/visible_todo_row.dart';
 import 'package:litetodo/domain/services/todo_move_service.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
 import 'package:litetodo/infrastructure/platform/sticky_notes_window_service.dart';
-import 'package:litetodo/icons/app_icons.dart';
+import 'package:litetodo/icons/project_icon.dart';
 import 'package:litetodo/presentation/shell/app_shell.dart';
 import 'package:litetodo/presentation/sticky_notes/sticky_notes_window.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
@@ -87,7 +91,15 @@ void main() {
       find.byKey(const ValueKey<String>('sticky-back-full-button')),
       findsOneWidget,
     );
-    expect(find.byIcon(AppIcons.stickyNotes), findsOneWidget);
+    final headerProjectIcon = find.descendant(
+      of: find.byKey(const ValueKey<String>('sticky-header-drag-region')),
+      matching: find.byType(ProjectIcon),
+    );
+    expect(headerProjectIcon, findsOneWidget);
+    expect(
+      tester.widget<ProjectIcon>(headerProjectIcon).iconKey,
+      project.iconKey,
+    );
     expect(
       find.byKey(const ValueKey<String>('todo-list-builder')),
       findsOneWidget,
@@ -146,6 +158,19 @@ void main() {
     expect(firstRowRect.left - cardRect.left, closeTo(AppMetrics.unit, 0.1));
     expect(firstRowRect.top - cardRect.top, closeTo(AppMetrics.unit, 0.1));
     expect(headerRect.height / firstRowRect.height, closeTo(1.579, 0.05));
+    final leafRow = rows.firstWhere(
+      (row) => !rows.any((candidate) => candidate.todo.parentId == row.todo.id),
+    );
+    final leafDragHandle = find.byKey(
+      ValueKey<String>('sticky-drag-handle-${leafRow.todo.id}'),
+    );
+    final leafCheckbox = find.byKey(
+      ValueKey<String>('sticky-checkbox-${leafRow.todo.id}'),
+    );
+    expect(
+      tester.getRect(leafCheckbox).left - tester.getRect(leafDragHandle).right,
+      closeTo(AppMetrics.unit * 2, 0.1),
+    );
 
     final completedRows = rows
         .where((row) => row.completionState == TodoVisualState.complete)
@@ -176,6 +201,46 @@ void main() {
       workspace.todos.firstWhere((todo) => todo.id == firstRow.todo.id),
       firstRow.todo,
     );
+  });
+
+  testWidgets('sticky secondary app follows dark theme and project accent', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    final project = workspace.projects.first;
+    final channel = StickyNotesSecondaryChannel();
+    final settings = ValueNotifier<AppSettings>(
+      AppSettings(themeMode: AppThemeMode.dark, accentColorKey: 'red'),
+    );
+    addTearDown(() {
+      settings.dispose();
+      workspace.dispose();
+    });
+
+    await tester.pumpWidget(
+      StickyNotesSecondaryApp(
+        workspace: workspace,
+        windowService: channel,
+        projectId: project.id,
+        windowKey: StickyNotesController.keyFor(project.id),
+        settingsListenable: settings,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final header = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('sticky-header')),
+    );
+    final decoration = header.decoration as BoxDecoration;
+    expect(decoration.color, AppColors.darkScheme.surface);
+
+    final headerProjectIcon = find.descendant(
+      of: find.byKey(const ValueKey<String>('sticky-header-drag-region')),
+      matching: find.byType(ProjectIcon),
+    );
+    final icon = tester.widget<ProjectIcon>(headerProjectIcon);
+    expect(icon.iconKey, project.iconKey);
+    expect(icon.color, ProjectPalette.resolve(project.colorKey).accent);
   });
 
   testWidgets('sticky header starts native drag on pointer down once', (
@@ -301,7 +366,11 @@ void main() {
     expect(reorderArguments['targetId'], targetRow.todo.id);
     expect(
       reorderArguments['position'],
-      isIn(<String>[TodoMovePosition.before.name, TodoMovePosition.inside.name, TodoMovePosition.after.name]),
+      isIn(<String>[
+        TodoMovePosition.before.name,
+        TodoMovePosition.inside.name,
+        TodoMovePosition.after.name,
+      ]),
     );
     calls.clear();
 

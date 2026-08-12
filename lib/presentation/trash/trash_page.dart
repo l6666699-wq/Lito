@@ -12,6 +12,7 @@ import '../../domain/models/trash_item.dart';
 import '../../icons/app_icons.dart';
 import '../../icons/project_icon.dart';
 import '../../app/theme/project_palette.dart';
+import '../common/app_dialog.dart';
 
 /// The local recycle bin.  Trash is intentionally a real workspace route:
 /// entries are read from [WorkspaceController], not from a presentation-only
@@ -185,7 +186,7 @@ class _TrashPageState extends State<TrashPage> {
   }
 
   Future<bool?> _confirmClear(BuildContext context) {
-    return showShadDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ShadDialog.alert(

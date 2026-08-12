@@ -11,6 +11,7 @@
 namespace {
 constexpr char kKeyField[] = "key";
 constexpr char kProjectIdField[] = "projectId";
+constexpr char kGroupIdField[] = "groupId";
 constexpr char kSnapshotField[] = "snapshot";
 constexpr char kValueField[] = "value";
 // Sticky notes draw their own header and must start at the visible window
@@ -77,7 +78,8 @@ void StickyWindowManager::HandlePrimaryMethodCall(
 
   if (call.method_name() == "open") {
     const auto project_id = ReadString(arguments, kProjectIdField);
-    if (!Open(key, project_id)) {
+    const auto group_id = ReadString(arguments, kGroupIdField);
+    if (!Open(key, project_id, group_id)) {
       result->Error("open_failed", "The sticky window could not be created.");
       return;
     }
@@ -168,7 +170,8 @@ void StickyWindowManager::HandleSecondaryMethodCall(
 }
 
 bool StickyWindowManager::Open(const std::string& key,
-                               const std::string& project_id) {
+                               const std::string& project_id,
+                               const std::string& group_id) {
   const auto existing = windows_.find(key);
   if (existing != windows_.end()) {
     existing->second->Show();
@@ -182,6 +185,9 @@ bool StickyWindowManager::Open(const std::string& key,
   };
   if (!project_id.empty()) {
     arguments.push_back("--sticky-project-id=" + project_id);
+  }
+  if (!group_id.empty()) {
+    arguments.push_back("--sticky-group-id=" + group_id);
   }
   project.set_dart_entrypoint_arguments(std::move(arguments));
 

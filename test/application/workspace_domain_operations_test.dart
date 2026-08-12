@@ -54,6 +54,28 @@ void main() {
     );
   });
 
+  test('new inbox Todos use creation time for today and recent scopes', () {
+    final workspace = controller();
+    final created = workspace.createRootTodo('created in inbox');
+
+    expect(created.projectId, isNull);
+    workspace.selectInbox();
+    expect(
+      workspace.visibleRows.map((row) => row.todo.id),
+      contains(created.id),
+    );
+    workspace.selectToday();
+    expect(
+      workspace.visibleRows.map((row) => row.todo.id),
+      contains(created.id),
+    );
+    workspace.selectRecent();
+    expect(
+      workspace.visibleRows.map((row) => row.todo.id),
+      contains(created.id),
+    );
+  });
+
   test('completion toggles subtree and recomputes ancestors', () {
     final workspace = controller();
     final root = workspace.createRootTodo('root');

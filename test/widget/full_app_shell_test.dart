@@ -12,6 +12,7 @@ import 'package:litetodo/application/window_controller.dart';
 import 'package:litetodo/application/workspace_controller.dart';
 import 'package:litetodo/app/theme/app_colors.dart';
 import 'package:litetodo/app/theme/app_metrics.dart';
+import 'package:litetodo/app/theme/app_motion.dart';
 import 'package:litetodo/domain/models/app_settings.dart';
 import 'package:litetodo/infrastructure/platform/desktop_window_service.dart';
 import 'package:litetodo/infrastructure/platform/sticky_notes_window_service.dart';
@@ -148,6 +149,46 @@ void main() {
       isTrue,
     );
     expect(windows.mode, WindowMode.full);
+  });
+
+  testWidgets('topbar add task in a project keeps the project owner', (
+    tester,
+  ) async {
+    final workspace = WorkspaceController();
+    final project = workspace.projects.first;
+    final navigation = AppNavigationController();
+    addTearDown(() {
+      workspace.dispose();
+      navigation.dispose();
+    });
+
+    await tester.pumpWidget(
+      LiteTodoApp(controller: workspace, navigationController: navigation),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey<String>('project-${project.id}')));
+    await tester.pump();
+    expect(workspace.scope, WorkspaceScope.project);
+    expect(workspace.projectScopeId, project.id);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('shell-add-task-button')),
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byType(EditableText).last,
+      'project-owned-task',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(
+      workspace.todos.any(
+        (todo) =>
+            todo.title == 'project-owned-task' && todo.projectId == project.id,
+      ),
+      isTrue,
+    );
   });
 
   testWidgets(
@@ -326,7 +367,7 @@ void main() {
     });
   }
 
-  testWidgets('theme snapshot paints dark canvas in the next frame', (
+  testWidgets('theme snapshot settles to dark canvas after motion token', (
     tester,
   ) async {
     final settings = SettingsController(
@@ -365,6 +406,7 @@ void main() {
 
     final update = settings.setThemeMode(AppThemeMode.dark);
     await tester.pump();
+    await tester.pump(AppMotion.theme);
     expect(
       tester
           .widget<ColoredBox>(

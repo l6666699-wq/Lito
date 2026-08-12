@@ -5,6 +5,7 @@ import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_metrics.dart';
+import '../../app/theme/app_motion.dart';
 import '../../app/theme/project_palette.dart';
 import '../../icons/app_icons.dart';
 
@@ -225,8 +226,8 @@ class CategoryItem extends StatelessWidget {
               key: selected
                   ? const ValueKey<String>('settings-category-active')
                   : null,
-              duration: const Duration(milliseconds: 120),
-              curve: Curves.easeOut,
+              duration: AppMotion.fast,
+              curve: AppMotion.standardCurve,
               decoration: BoxDecoration(
                 color: selected ? colors.focusSoft : colors.transparent,
                 borderRadius: BorderRadius.circular(AppMetrics.normalRadius),

@@ -30,6 +30,7 @@ enum WorkspaceScope {
   completed,
   archived,
   project,
+  group,
   search,
 }
 
@@ -71,6 +72,7 @@ class WorkspaceController extends ChangeNotifier {
   late AppData _data;
   WorkspaceScope _scope = WorkspaceScope.all;
   String? _projectScopeId;
+  String? _groupScopeId;
   String _searchQuery = '';
   bool _benchmarkMode = false;
   bool _initialized = false;
@@ -107,6 +109,7 @@ class WorkspaceController extends ChangeNotifier {
   int get redoCount => _history.redoCount;
   WorkspaceScope get scope => _scope;
   String? get projectScopeId => _projectScopeId;
+  String? get groupScopeId => _groupScopeId;
   String get searchQuery => _searchQuery;
 
   List<VisibleTodoRow> get visibleRows {
@@ -125,12 +128,28 @@ class WorkspaceController extends ChangeNotifier {
     return TodoTreeService(filtered).buildVisibleRows();
   }
 
+  List<VisibleTodoRow> visibleRowsForGroup(String groupId) {
+    final filtered = _todos
+        .where((todo) => _matchesGroup(todo, groupId))
+        .toList(growable: false);
+    return TodoTreeService(filtered).buildVisibleRows();
+  }
+
   bool _matchesStickyProject(TodoItem todo, String? projectId) {
     if (todo.projectId != projectId || todo.archivedAt != null) return false;
     final project = _projectFor(todo.projectId);
     if (project?.archived == true) return false;
     if (_groupFor(project?.groupId)?.archived == true) return false;
     return true;
+  }
+
+  bool _matchesGroup(TodoItem todo, String groupId) {
+    if (todo.archivedAt != null || _groupFor(groupId)?.archived == true) {
+      return false;
+    }
+    if (todo.groupId == groupId) return true;
+    final project = _projectFor(todo.projectId);
+    return project?.groupId == groupId && project?.archived != true;
   }
 
   /// Replaces the in-memory projection from the primary engine. Secondary
@@ -171,7 +190,8 @@ class WorkspaceController extends ChangeNotifier {
         .where(
           (todo) =>
               _isUnfinishedVisible(todo) &&
-              _projectFor(todo.projectId)?.groupId == groupId,
+              (todo.groupId == groupId ||
+                  _projectFor(todo.projectId)?.groupId == groupId),
         )
         .length;
   }
@@ -261,9 +281,14 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   void selectAll() {
-    if (_scope == WorkspaceScope.all && _projectScopeId == null) return;
+    if (_scope == WorkspaceScope.all &&
+        _projectScopeId == null &&
+        _groupScopeId == null) {
+      return;
+    }
     _scope = WorkspaceScope.all;
     _projectScopeId = null;
+    _groupScopeId = null;
     notifyListeners();
   }
 
@@ -271,6 +296,7 @@ class WorkspaceController extends ChangeNotifier {
     if (_scope == WorkspaceScope.inbox) return;
     _scope = WorkspaceScope.inbox;
     _projectScopeId = null;
+    _groupScopeId = null;
     notifyListeners();
   }
 
@@ -283,6 +309,7 @@ class WorkspaceController extends ChangeNotifier {
     _searchQuery = query;
     _scope = WorkspaceScope.search;
     _projectScopeId = null;
+    _groupScopeId = null;
     notifyListeners();
   }
 
@@ -291,12 +318,14 @@ class WorkspaceController extends ChangeNotifier {
     _searchQuery = query;
     _scope = WorkspaceScope.search;
     _projectScopeId = null;
+    _groupScopeId = null;
     notifyListeners();
   }
 
-  void selectScope(WorkspaceScope scope, {String? projectId}) {
+  void selectScope(WorkspaceScope scope, {String? projectId, String? groupId}) {
     _scope = scope;
     _projectScopeId = scope == WorkspaceScope.project ? projectId : null;
+    _groupScopeId = scope == WorkspaceScope.group ? groupId ?? projectId : null;
     notifyListeners();
   }
 
@@ -306,6 +335,15 @@ class WorkspaceController extends ChangeNotifier {
     }
     _scope = WorkspaceScope.project;
     _projectScopeId = projectId;
+    _groupScopeId = null;
+    notifyListeners();
+  }
+
+  void selectGroup(String groupId) {
+    if (_scope == WorkspaceScope.group && _groupScopeId == groupId) return;
+    _scope = WorkspaceScope.group;
+    _projectScopeId = null;
+    _groupScopeId = groupId;
     notifyListeners();
   }
 
@@ -364,21 +402,41 @@ class WorkspaceController extends ChangeNotifier {
   Future<void> addTodo(
     String title, {
     String? projectId,
+    String? groupId,
     DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
+    bool useWorkspaceScope = true,
   }) async {
-    createRootTodo(title, projectId: projectId, dueAt: dueAt);
+    createRootTodo(
+      title,
+      projectId: projectId,
+      groupId: groupId,
+      dueAt: dueAt,
+      priority: priority,
+      useWorkspaceScope: useWorkspaceScope,
+    );
   }
 
   Future<void> addTodoAndFlush(
     String title, {
     String? projectId,
+    String? groupId,
     DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
+    bool useWorkspaceScope = true,
   }) async {
     final before = _capturePersistenceSnapshot();
     int? mutationRevision;
     var mutationApplied = false;
     try {
-      await addTodo(title, projectId: projectId, dueAt: dueAt);
+      await addTodo(
+        title,
+        projectId: projectId,
+        groupId: groupId,
+        dueAt: dueAt,
+        priority: priority,
+        useWorkspaceScope: useWorkspaceScope,
+      );
       mutationApplied = true;
       mutationRevision = _data.revision;
       await flushNow();
@@ -400,6 +458,7 @@ class WorkspaceController extends ChangeNotifier {
     String title, {
     required String parentId,
     DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
   }) async {
     final before = _capturePersistenceSnapshot();
     TodoItem? created;
@@ -408,6 +467,7 @@ class WorkspaceController extends ChangeNotifier {
         title,
         parentId: parentId,
         dueAt: dueAt,
+        priority: priority,
       );
       created = createdTodo;
       final mutationRevision = _data.revision;
@@ -427,14 +487,29 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  TodoItem createRootTodo(String title, {String? projectId, DateTime? dueAt}) {
-    return _createTodo(title, projectId: projectId, dueAt: dueAt);
+  TodoItem createRootTodo(
+    String title, {
+    String? projectId,
+    String? groupId,
+    DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
+    bool useWorkspaceScope = true,
+  }) {
+    return _createTodo(
+      title,
+      projectId: projectId,
+      groupId: groupId,
+      dueAt: dueAt,
+      priority: priority,
+      useWorkspaceScope: useWorkspaceScope,
+    );
   }
 
   TodoItem createChildTodo(
     String title, {
     required String parentId,
     DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
   }) {
     final parent = _todoById(parentId);
     if (parent == null) {
@@ -443,51 +518,85 @@ class WorkspaceController extends ChangeNotifier {
     return _createTodo(
       title,
       projectId: parent.projectId,
+      groupId: parent.groupId,
       parentId: parent.id,
       dueAt: dueAt,
+      priority: priority,
     );
   }
 
-  TodoItem addRootTodo(String title, {String? projectId, DateTime? dueAt}) =>
-      createRootTodo(title, projectId: projectId, dueAt: dueAt);
+  TodoItem addRootTodo(
+    String title, {
+    String? projectId,
+    String? groupId,
+    DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
+  }) => createRootTodo(
+    title,
+    projectId: projectId,
+    groupId: groupId,
+    dueAt: dueAt,
+    priority: priority,
+  );
 
   TodoItem addChildTodo(
     String title, {
     required String parentId,
     DateTime? dueAt,
-  }) => createChildTodo(title, parentId: parentId, dueAt: dueAt);
+    TodoPriority priority = TodoPriority.none,
+  }) => createChildTodo(
+    title,
+    parentId: parentId,
+    dueAt: dueAt,
+    priority: priority,
+  );
 
   TodoItem createTodo(
     String title, {
     String? projectId,
+    String? groupId,
     String? parentId,
     DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
   }) {
     return _createTodo(
       title,
       projectId: projectId,
+      groupId: groupId,
       parentId: parentId,
       dueAt: dueAt,
+      priority: priority,
     );
   }
 
   TodoItem _createTodo(
     String title, {
     String? projectId,
+    String? groupId,
     String? parentId,
     DateTime? dueAt,
+    TodoPriority priority = TodoPriority.none,
+    bool useWorkspaceScope = true,
   }) {
     _ensureWritable();
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
       throw ArgumentError.value(title, 'title', 'Todo title cannot be empty');
     }
-    final targetProjectId = _resolveProjectId(projectId);
+    final targetProjectId = _resolveProjectId(
+      projectId,
+      useWorkspaceScope: useWorkspaceScope,
+    );
+    final targetGroupId = targetProjectId == null
+        ? _resolveGroupId(groupId, useWorkspaceScope: useWorkspaceScope)
+        : null;
     final parent = parentId == null ? null : _todoById(parentId);
     if (parentId != null && parent == null) {
       throw StateError('Parent Todo does not exist: $parentId');
     }
-    if (parent != null && parent.projectId != targetProjectId) {
+    if (parent != null &&
+        (parent.projectId != targetProjectId ||
+            parent.groupId != targetGroupId)) {
       throw StateError('A child Todo must stay in its parent project');
     }
     if (parent != null &&
@@ -497,7 +606,10 @@ class WorkspaceController extends ChangeNotifier {
       );
     }
     final siblings = _todos.where(
-      (todo) => todo.projectId == targetProjectId && todo.parentId == parentId,
+      (todo) =>
+          todo.projectId == targetProjectId &&
+          todo.groupId == targetGroupId &&
+          todo.parentId == parentId,
     );
     final maxSortOrder = siblings.fold<int>(
       0,
@@ -507,12 +619,14 @@ class WorkspaceController extends ChangeNotifier {
     final todo = TodoItem(
       id: _newTodoId(),
       projectId: targetProjectId,
+      groupId: targetGroupId,
       parentId: parentId,
       title: normalizedTitle,
       completed: false,
       completedAt: null,
       dueAt: dueAt?.toUtc(),
       archivedAt: null,
+      priority: priority,
       sortOrder: maxSortOrder + TodoMoveService.sortGap,
       collapsed: false,
       createdAt: now,
@@ -701,7 +815,12 @@ class WorkspaceController extends ChangeNotifier {
     for (final original in decoded) {
       final projectValid =
           original.projectId != null && _projectFor(original.projectId) != null;
-      final projectId = projectValid ? original.projectId : null;
+      final legacyGroupProject = original.groupId == null
+          ? null
+          : _projectFor(original.groupId);
+      final projectId = projectValid
+          ? original.projectId
+          : legacyGroupProject?.id;
       String? parentId;
       if (original.parentId != null) {
         parentId = idMap[original.parentId!];
@@ -716,6 +835,7 @@ class WorkspaceController extends ChangeNotifier {
         original.copyWith(
           id: idMap[original.id],
           projectId: projectId,
+          groupId: null,
           parentId: parentId,
           archivedAt: null,
           updatedAt: now,
@@ -739,14 +859,9 @@ class WorkspaceController extends ChangeNotifier {
     final projectId = existingProjectIds.contains(originalProject.id)
         ? _newUniqueId('project', existingProjectIds)
         : originalProject.id;
-    final groupId =
-        originalProject.groupId != null &&
-            _groupFor(originalProject.groupId) != null
-        ? originalProject.groupId
-        : null;
     final restoredProject = originalProject.copyWith(
       id: projectId,
-      groupId: groupId,
+      groupId: null,
       updatedAt: _nowProvider().toUtc(),
     );
     final decoded = <TodoItem>[];
@@ -777,6 +892,7 @@ class WorkspaceController extends ChangeNotifier {
         original.copyWith(
           id: idMap[original.id],
           projectId: projectId,
+          groupId: null,
           parentId: parentId,
           archivedAt: null,
           updatedAt: now,
@@ -810,6 +926,7 @@ class WorkspaceController extends ChangeNotifier {
     String targetId,
     TodoMovePosition position, {
     String? destinationProjectId,
+    String? destinationGroupId,
   }) {
     _ensureWritable();
     final moved = TodoMoveService.moveTodos(
@@ -818,6 +935,7 @@ class WorkspaceController extends ChangeNotifier {
       targetId: targetId,
       position: position,
       destinationProjectId: destinationProjectId,
+      destinationGroupId: destinationGroupId,
       now: _nowProvider(),
     );
     _setTodos(moved);
@@ -830,11 +948,13 @@ class WorkspaceController extends ChangeNotifier {
     String targetId,
     TodoMovePosition position, {
     String? destinationProjectId,
+    String? destinationGroupId,
   }) => moveTodo(
     movingId,
     targetId,
     position,
     destinationProjectId: destinationProjectId,
+    destinationGroupId: destinationGroupId,
   );
 
   ProjectGroup createGroup({
@@ -897,6 +1017,12 @@ class WorkspaceController extends ChangeNotifier {
         project.groupId == groupId
             ? project.copyWith(groupId: null, updatedAt: now)
             : project,
+    ]);
+    _setTodos(<TodoItem>[
+      for (final todo in _todos)
+        todo.groupId == groupId
+            ? todo.copyWith(groupId: null, updatedAt: now)
+            : todo,
     ]);
     _setGroups(
       _groups.where((group) => group.id != groupId).toList(growable: false),
@@ -1222,6 +1348,7 @@ class WorkspaceController extends ChangeNotifier {
       dirty: _dirty,
       scope: _scope,
       projectScopeId: _projectScopeId,
+      groupScopeId: _groupScopeId,
       searchQuery: _searchQuery,
       pendingHistoryBefore: _pendingHistoryBefore,
     );
@@ -1243,6 +1370,7 @@ class WorkspaceController extends ChangeNotifier {
     _dirty = snapshot.dirty;
     _scope = snapshot.scope;
     _projectScopeId = snapshot.projectScopeId;
+    _groupScopeId = snapshot.groupScopeId;
     _searchQuery = snapshot.searchQuery;
     _pendingHistoryBefore = snapshot.pendingHistoryBefore;
     _lastPersistenceError = error;
@@ -1300,16 +1428,33 @@ class WorkspaceController extends ChangeNotifier {
     return null;
   }
 
-  String? _resolveProjectId(String? requested) {
+  String? _resolveProjectId(
+    String? requested, {
+    bool useWorkspaceScope = true,
+  }) {
     final candidate =
         requested ??
-        (_scope == WorkspaceScope.project ? _projectScopeId : null);
+        (useWorkspaceScope && _scope == WorkspaceScope.project
+            ? _projectScopeId
+            : null);
     if (candidate == null) return null;
     final project = _projectFor(candidate);
     if (project == null || project.archived) return null;
     final group = _groupFor(project.groupId);
     if (group?.archived == true) return null;
     return project.id;
+  }
+
+  String? _resolveGroupId(String? requested, {bool useWorkspaceScope = true}) {
+    final candidate =
+        requested ??
+        (useWorkspaceScope && _scope == WorkspaceScope.group
+            ? _groupScopeId
+            : null);
+    if (candidate == null) return null;
+    final group = _groupFor(candidate);
+    if (group == null || group.archived) return null;
+    return group.id;
   }
 
   int _depthOf(String id) {
@@ -1335,6 +1480,9 @@ class WorkspaceController extends ChangeNotifier {
     if (todo.completed || todo.archivedAt != null) return false;
     final project = _projectFor(todo.projectId);
     if (project?.archived == true) return false;
+    if (todo.groupId != null && _groupFor(todo.groupId)?.archived == true) {
+      return false;
+    }
     if (_groupFor(project?.groupId)?.archived == true) return false;
     return true;
   }
@@ -1343,9 +1491,12 @@ class WorkspaceController extends ChangeNotifier {
     final value = requested ?? _scope;
     if (value == WorkspaceScope.archived) return todo.archivedAt != null;
     if (todo.archivedAt != null) return false;
-    if (value != WorkspaceScope.project && value != WorkspaceScope.archived) {
+    if (value != WorkspaceScope.project &&
+        value != WorkspaceScope.group &&
+        value != WorkspaceScope.archived) {
       final project = _projectFor(todo.projectId);
       if (project?.archived == true ||
+          (todo.groupId != null && _groupFor(todo.groupId)?.archived == true) ||
           _groupFor(project?.groupId)?.archived == true) {
         return false;
       }
@@ -1354,7 +1505,7 @@ class WorkspaceController extends ChangeNotifier {
       case WorkspaceScope.all:
         return true;
       case WorkspaceScope.inbox:
-        return todo.projectId == null;
+        return todo.projectId == null && todo.groupId == null;
       case WorkspaceScope.today:
         return _isDueOn(todo, _nowProvider().toLocal());
       case WorkspaceScope.recent:
@@ -1365,6 +1516,9 @@ class WorkspaceController extends ChangeNotifier {
         return todo.archivedAt != null;
       case WorkspaceScope.project:
         return todo.projectId == _projectScopeId;
+      case WorkspaceScope.group:
+        return todo.groupId == _groupScopeId ||
+            _projectFor(todo.projectId)?.groupId == _groupScopeId;
       case WorkspaceScope.search:
         final needle = _searchQuery.trim().toLowerCase();
         if (needle.isEmpty) return true;
@@ -1375,16 +1529,14 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   bool _isDueOn(TodoItem todo, DateTime localDate) {
-    final due = todo.dueAt?.toLocal();
-    return due != null &&
-        due.year == localDate.year &&
+    final due = (todo.dueAt ?? todo.createdAt).toLocal();
+    return due.year == localDate.year &&
         due.month == localDate.month &&
         due.day == localDate.day;
   }
 
   bool _isDueInRecent(TodoItem todo, DateTime localDate) {
-    final due = todo.dueAt?.toLocal();
-    if (due == null) return false;
+    final due = (todo.dueAt ?? todo.createdAt).toLocal();
     final start = DateTime(localDate.year, localDate.month, localDate.day);
     final end = start.add(const Duration(days: 7));
     return !due.isBefore(start) && due.isBefore(end);
@@ -1522,6 +1674,7 @@ class _WorkspacePersistenceSnapshot {
     required this.dirty,
     required this.scope,
     required this.projectScopeId,
+    required this.groupScopeId,
     required this.searchQuery,
     required this.pendingHistoryBefore,
   });
@@ -1536,6 +1689,7 @@ class _WorkspacePersistenceSnapshot {
   final bool dirty;
   final WorkspaceScope scope;
   final String? projectScopeId;
+  final String? groupScopeId;
   final String searchQuery;
   final AppData? pendingHistoryBefore;
 }

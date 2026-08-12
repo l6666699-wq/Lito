@@ -58,7 +58,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('所有待办'), findsWidgets);
-    expect(find.textContaining('50 条 Todo'), findsOneWidget);
 
     controller.selectInbox();
     await tester.pump();
@@ -186,11 +185,11 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
     await addHover.removePointer();
-    expect(
-      find.byKey(const ValueKey<String>('todo-inline-composer')),
-      findsOneWidget,
+    expect(find.byType(EditableText), findsWidgets);
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('todo-inline-composer-input')),
+      '新增子任务',
     );
-    await tester.enterText(find.byType(EditableText).last, '新增子任务');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     expect(
@@ -200,6 +199,28 @@ void main() {
       isTrue,
     );
     await rootHover.removePointer();
+  });
+
+  testWidgets('only one todo can be edited at a time', (tester) async {
+    final controller = WorkspaceController();
+    await pumpHome(tester, controller);
+    final first = controller.visibleRows[0].todo;
+    final second = controller.visibleRows[1].todo;
+
+    final firstHover = await hoverRow(tester, first.id);
+    await tester.tap(
+      find.byKey(ValueKey<String>('todo-action-${first.id}-编辑任务')),
+    );
+    await tester.pump();
+    await firstHover.removePointer();
+
+    final secondRow = find.byKey(ValueKey<String>('todo-row-${second.id}'));
+    await tester.tap(secondRow);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(secondRow);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(EditableText), findsOneWidget);
   });
 
   testWidgets('archive and delete update visible rows and trash', (

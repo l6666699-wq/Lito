@@ -55,18 +55,23 @@ class _StatisticsPageState extends State<StatisticsPage> {
         final colors = AppColors.of(context);
         return Padding(
           key: const ValueKey<String>('statistics-page'),
-          padding: const EdgeInsets.fromLTRB(6, 0, 12, 14),
+          padding: const EdgeInsets.all(AppMetrics.unit * 3),
           child: DecoratedBox(
             key: const ValueKey<String>('statistics-surface'),
             decoration: BoxDecoration(
               color: colors.surface,
               border: Border.all(color: colors.border),
-              borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+              borderRadius: BorderRadius.circular(AppMetrics.shellCardRadius),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppMetrics.normalRadius),
+              borderRadius: BorderRadius.circular(AppMetrics.shellCardRadius),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(21, 20, 21, 28),
+                padding: const EdgeInsets.fromLTRB(
+                  AppMetrics.unit * 4,
+                  AppMetrics.unit * 4,
+                  AppMetrics.unit * 4,
+                  AppMetrics.unit * 7,
+                ),
                 child: _StatisticsBody(
                   stats: stats,
                   projects: widget.controller.projects,
@@ -629,7 +634,7 @@ class _TrendCard extends StatelessWidget {
       title: '任务完成趋势',
       trailing: const _ChartSelectLabel(label: '按天'),
       height: height,
-      child: stats.total == 0 || stats.daily.isEmpty
+      child: stats.completed == 0 || stats.daily.isEmpty
           ? const _ChartEmptyState(message: '暂无可展示的趋势数据')
           : Column(
               children: [
@@ -668,7 +673,7 @@ class _TrendPainter extends CustomPainter {
       math.max(top + 10, size.height - bottom).toDouble(),
     );
     final maxValue = daily.fold<int>(1, (maximum, day) {
-      return day.total > maximum ? day.total : maximum;
+      return day.completed > maximum ? day.completed : maximum;
     });
     final gridPaint = Paint()
       ..color = colors.border.withValues(alpha: .68)
@@ -709,31 +714,18 @@ class _TrendPainter extends CustomPainter {
       final x = daily.length == 1
           ? plot.center.dx
           : plot.left + plot.width * index / (daily.length - 1);
-      final totalHeight = plot.height * day.total / maxValue;
-      final uncompletedHeight = plot.height * day.uncompleted / maxValue;
+      final completedHeight = plot.height * day.completed / maxValue;
       final barRect = Rect.fromLTRB(
         x - barWidth / 2,
-        plot.bottom - totalHeight,
+        plot.bottom - completedHeight,
         x + barWidth / 2,
         plot.bottom,
       );
-      final barPaint = Paint()..color = chartAccent.withValues(alpha: .2);
+      final barPaint = Paint()..color = chartAccent.withValues(alpha: .18);
       canvas.drawRRect(
         RRect.fromRectAndRadius(barRect, const Radius.circular(4)),
         barPaint,
       );
-      if (uncompletedHeight > 0) {
-        final completedRect = Rect.fromLTRB(
-          x - barWidth / 2,
-          plot.bottom - totalHeight,
-          x + barWidth / 2,
-          plot.bottom - uncompletedHeight,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(completedRect, const Radius.circular(4)),
-          Paint()..color = chartAccent,
-        );
-      }
       final completedY = plot.bottom - plot.height * day.completed / maxValue;
       points.add(Offset(x, completedY));
       final rateY = plot.bottom - plot.height * _completionRate(day);
